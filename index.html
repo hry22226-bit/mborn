@@ -739,6 +739,12 @@ html, body {
   gap: 10px;
   flex-wrap: wrap;
   padding-top: 4px;
+  position: sticky;
+  bottom: -20px;
+  margin: 0 -24px -20px;
+  padding: 10px 24px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(12, 8, 18, 0) 0%, rgba(12, 8, 18, 0.96) 38%, #0c0812 100%);
+  border-top: 1px solid rgba(201, 161, 101, 0.22);
 }
 
 .ledger-grid {
@@ -892,6 +898,8 @@ html, body {
 }
 
 #game-root.touch-mode #touch-controls { display: flex; }
+/* タイトル・難易度選択の上ではボタンを出さない（カードに重なるため） */
+#game-root.touch-mode:not(.playing) #touch-controls { display: none; }
 #game-root.touch-mode .title-controls-hint { display: none; }
 
 .tc-move, .tc-act { pointer-events: auto; }
@@ -980,6 +988,67 @@ html, body {
   .tc-btn.tc-small { width: 38px; height: 38px; font-size: 9px; }
   #game-root.touch-mode #boss-hud { bottom: 112px; }
   .tc-swap { bottom: 62px; }
+}
+
+/* 狭い縦画面: 親指ボタンが右端からはみ出さないよう一段小さくする */
+@media (max-width: 400px) {
+  .tc-dpad { width: 48px; height: 48px; font-size: 15px; }
+  .tc-btn { width: 52px; height: 52px; font-size: 10px; }
+  .tc-atk { width: 56px; height: 56px; font-size: 11px; }
+  .tc-btn.tc-small { width: 38px; height: 38px; font-size: 8.5px; }
+  .tc-row { gap: 5px; }
+  .tc-move { gap: 5px; }
+}
+@media (max-width: 340px) {
+  .tc-dpad { width: 42px; height: 42px; font-size: 13px; }
+  .tc-btn { width: 48px; height: 48px; font-size: 9px; }
+  .tc-atk { width: 52px; height: 52px; font-size: 10px; }
+  .tc-btn.tc-small { width: 34px; height: 34px; font-size: 8px; }
+  .tc-row { gap: 4px; }
+  .tc-move { gap: 4px; }
+}
+
+/* 画面が低い（横向きスマホ等）: タイトルは全体を縮めて必ず収める */
+@media (max-height: 560px) {
+  .screen-overlay { gap: 8px; padding: 8px 12px; justify-content: flex-start; overflow-y: auto; }
+  .title-main { font-size: 26px !important; }
+  .title-era { font-size: 9px !important; }
+  .title-sub { font-size: 10px !important; }
+  .title-jp, .title-collect { font-size: 10px !important; }
+  .title-header { text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95); }
+  .diff-prompt { font-size: 10px !important; margin-bottom: 2px; }
+  .diff-pad { padding: 5px 4px !important; }
+  .diff-name { font-size: 12px !important; }
+  .diff-card { padding: 5px 6px !important; }
+  .title-actions { gap: 6px; }
+  .gothic-btn { font-size: 12px; padding: 7px 12px; }
+  .title-controls-hint { display: none; }
+}
+
+/* 狭い縦画面（小型スマホ）: タイトルの縦間隔を詰める */
+@media (max-width: 380px) and (max-height: 700px) {
+  .screen-overlay { gap: 8px; padding: 10px 12px; justify-content: flex-start; overflow-y: auto; }
+  .title-main { font-size: 30px !important; }
+  .title-divider { margin: 2px auto !important; }
+  .title-collect { display: none; }
+  .diff-desc { display: none; }
+  .diff-target { font-size: 10px !important; line-height: 1.25; }
+  .diff-card { padding: 4px 6px !important; }
+  .gothic-btn { font-size: 11.5px; padding: 6px 11px; }
+}
+
+/* 横向きスマホ（高さが低い・幅が狭い）: 2段のボタン列を1段に畳んで収める */
+@media (max-height: 430px) and (max-width: 720px) {
+  .tc-act { flex-direction: row; align-items: flex-end; gap: 6px; }
+  .tc-act .tc-row { gap: 5px; }
+  .tc-act .tc-row.tc-minor { order: 2; }
+  .tc-btn.tc-small { width: 34px; height: 34px; font-size: 8.5px; }
+  .tc-btn { width: 46px; height: 46px; font-size: 9.5px; }
+  .tc-atk { width: 50px; height: 50px; font-size: 10.5px; }
+  .tc-dpad { width: 44px; height: 44px; font-size: 14px; }
+  #touch-controls { padding: 0 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  #game-root.touch-mode #boss-hud { bottom: 68px; }
+  .tc-swap { bottom: 58px; height: 20px; font-size: 9px; }
 }
 
 </style>
@@ -1110,8 +1179,8 @@ const DIFFICULTIES = {
     tier: 0,
     name: 'EASY',
     tag: '超イージー',
-    targetText: '物語をじっくり味わうモード',
-    desc: 'HP400＋毎秒20回復・被ダメはごく僅か・攻撃2.1倍・2段ジャンプ・棘は自動救出・0.45秒のパリィ。物語を追いたい人向け。',
+    targetText: '物語を楽しむ超イージー',
+    desc: 'HP400＋毎秒20回復・被ダメはごく僅か・攻撃2.1倍・2段ジャンプ・棘は自動救出。物語を止めずに追える初心者向け。',
     color: '#5ce6a0',
     glow: 'rgba(92, 230, 160, 0.42)',
     maxHp: 400,
@@ -1130,6 +1199,11 @@ const DIFFICULTIES = {
     hurtIframes: 2.40,
     parryWindow: 0.45,     // 450ms huge generous window
     parryCooldown: 0.12,
+    // パリィ威力は難易度に反比例：手加減が要る EASY ほど弱く、本気の M ほど強い。
+    parryDmgMult: 0.50,
+    parryBase: 70,          // パリィの基礎威力（これに難易度係数を掛ける）
+    parryChip: false,          // 聖盾の打撃そのものがHPを削る（EXPERT/M の保険）
+    parryCounterMult: 1.4,  // パリィ成功時の反撃倍率
     dashIframes: 0.60,
     dashCooldown: 0.16,
     coyoteTime: 0.20,
@@ -1153,7 +1227,7 @@ const DIFFICULTIES = {
     tier: 1,
     name: 'NORMAL',
     tag: '標準',
-    targetText: '標準（快適なアクション）',
+    targetText: '快適アクション／基準難度',
     desc: 'HP300＋毎秒11回復・被ダメ微小・攻撃1.75倍・2段ジャンプ・棘は自動救出・回復ドロップ豊富。テンポよく進める基準難度。',
     color: '#63b8ff',
     glow: 'rgba(99, 184, 255, 0.42)',
@@ -1173,6 +1247,10 @@ const DIFFICULTIES = {
     hurtIframes: 1.90,
     parryWindow: 0.36,
     parryCooldown: 0.16,
+    parryDmgMult: 1.00,    // 基準（EASYより強く、HARDより弱い）
+    parryBase: 55,          // パリィの基礎威力（これに難易度係数を掛ける）
+    parryChip: false,          // 聖盾の打撃そのものがHPを削る（EXPERT/M の保険）
+    parryCounterMult: 1.5,  // パリィ成功時の反撃倍率
     dashIframes: 0.50,
     dashCooldown: 0.20,
     coyoteTime: 0.18,
@@ -1196,8 +1274,8 @@ const DIFFICULTIES = {
     tier: 2,
     name: 'HARD',
     tag: 'ここから本番',
-    targetText: '自動回復なし・2段ジャンプ廃止',
-    desc: '自動回復と2段ジャンプが消滅。聖水瓶は2個・回転ノコギリ稼働・敵は高速化しボスも連携強化。ここから難度が急勾配で上がります。',
+    targetText: '自動回復なし・敵高速化',
+    desc: '自動回復が消滅。聖水瓶は2個・回転ノコギリ稼働・敵は高速化しボスも連携強化。2段ジャンプは全難易度共通で使えます。',
     color: '#f5b041',
     glow: 'rgba(245, 176, 65, 0.45)',
     maxHp: 88,
@@ -1216,13 +1294,17 @@ const DIFFICULTIES = {
     hurtIframes: 0.62,
     parryWindow: 0.12,     // 120ms crisp standard parry
     parryCooldown: 0.38,
+    parryDmgMult: 1.45,    // パリィ威力は難易度に比例
+    parryBase: 46,          // パリィの基礎威力（これに難易度係数を掛ける）
+    parryChip: false,          // 聖盾の打撃そのものがHPを削る（EXPERT/M の保険）
+    parryCounterMult: 1.6,  // パリィ成功時の反撃倍率
     dashIframes: 0.20,
     dashCooldown: 0.52,
     coyoteTime: 0.095,
     jumpBuffer: 0.10,
-    extraAirJumps: 0,
+    extraAirJumps: 1,      // 2段ジャンプは全難易度で解禁
     spikeRescue: false,
-    spikeDamage: 38,
+    spikeDamage: 30,
     meatDropChance: 0.06,
     carmillaCurseLimit: 4,
     draculaPhase3: false,
@@ -1239,8 +1321,8 @@ const DIFFICULTIES = {
     tier: 3,
     name: 'EXPERT',
     tag: '最上級',
-    targetText: '2発で瀕死・崩落足場＋複合弾幕',
-    desc: 'HP64（2発で瀕死/死亡）・聖水瓶1個・崩落足場＆追加トラップ・偏差射撃・複合ボス弾幕・ドラキュラ真第3形態解禁！',
+    targetText: '2発で瀕死・罠と弾幕が本気',
+    desc: 'HP64（2発で瀕死/死亡）・聖水瓶1個・崩落足場＆追加トラップ・偏差射撃・複合ボス弾幕・ドラキュラ真第3形態解禁。',
     color: '#ff5252',
     glow: 'rgba(255, 82, 82, 0.5)',
     maxHp: 64,
@@ -1259,13 +1341,17 @@ const DIFFICULTIES = {
     hurtIframes: 0.46,
     parryWindow: 0.10,     // 100ms strict parry
     parryCooldown: 0.48,
+    parryDmgMult: 1.90,    // パリィ威力は難易度に比例
+    parryBase: 44,          // パリィの基礎威力（これに難易度係数を掛ける）
+    parryChip: true,          // 聖盾の打撃そのものがHPを削る（EXPERT/M の保険）
+    parryCounterMult: 1.7,  // パリィ成功時の反撃倍率
     dashIframes: 0.15,
     dashCooldown: 0.64,
     coyoteTime: 0.08,
     jumpBuffer: 0.09,
-    extraAirJumps: 0,
+    extraAirJumps: 1,      // 2段ジャンプは全難易度で解禁
     spikeRescue: false,
-    spikeDamage: 56,
+    spikeDamage: 34,
     meatDropChance: 0.02,
     carmillaCurseLimit: 3,
     draculaPhase3: true,
@@ -1282,8 +1368,8 @@ const DIFFICULTIES = {
     tier: 4,
     name: 'M',
     tag: '極限',
-    targetText: 'HP1・全室Kaizo処刑罠',
-    desc: 'HP1（一撃死）・極限パリィ・全室Kaizo処刑罠・天井棘・落下燭台・床骨槍・擬態肉・呪刻タイマー・狂気弾幕。0.28秒即復帰。',
+    targetText: 'HP1・Kaizo処刑罠・狂気の領域',
+    desc: 'HP1（一撃死）・全室Kaizo処刑罠・天井棘・落下燭台・床骨槍・擬態肉・呪刻タイマー・狂気弾幕。0.28秒即復帰。',
     color: '#ff1f6d',
     glow: 'rgba(255, 31, 109, 0.72)',
     maxHp: 1,
@@ -1302,13 +1388,17 @@ const DIFFICULTIES = {
     hurtIframes: 0.35,     // a sliver of mercy after a hit
     parryWindow: 0.09,     // ~5.5 frames — still the tightest window
     parryCooldown: 0.54,
+    parryDmgMult: 2.50,    // パリィ威力は難易度に比例（Mが最大）
+    parryBase: 40,          // パリィの基礎威力（これに難易度係数を掛ける）
+    parryChip: true,          // 聖盾の打撃そのものがHPを削る（EXPERT/M の保険）
+    parryCounterMult: 1.8,  // パリィ成功時の反撃倍率
     dashIframes: 0.14,
     dashCooldown: 0.68,
     coyoteTime: 0.07,
     jumpBuffer: 0.085,
-    extraAirJumps: 0,
+    extraAirJumps: 1,      // 2段ジャンプは全難易度で解禁
     spikeRescue: false,
-    spikeDamage: 999,
+    spikeDamage: 44,
     meatDropChance: 0,
     carmillaCurseLimit: 1,
     draculaPhase3: true,
@@ -1940,7 +2030,7 @@ const ROOMS = [
       { x: 250, y: 600, text: '【移動】A/D・←/→　【跳躍】Space/W/Z　【攻撃】J/X/左クリック' },
       { x: 760, y: 600, text: '【スライディング】Shift　【聖盾パリィ】L/F（弾く＋正面に打撃）' },
       { x: 1360, y: 520, text: '【武器切替】1〜4/Tab　【タロット魔法】U/C　【鞭スイング】K/E' },
-      { x: 1860, y: 600, text: '【秘技】鎖を当てた直後に L（聖盾パリィ）→ 鎖パリィ！' },
+      { x: 1860, y: 600, text: '【鎖】鎖を当てた直後に L（聖盾パリィ）→ 鎖パリィ！' },
     ],
     solids: [
       // Left boundary wall & ceiling
@@ -3532,7 +3622,7 @@ class Player {
     this.parryTimer = 0;
     this.parryCooldown = 0;
     this.parryFlash = 0;
-    // 【秘技】鎖パリィ — chain held out (grapple latch) + parry
+    // 【応用】鎖パリィ — chain held out (grapple latch) + parry
     this.chainParry = 0;        // remaining seconds of the held chain
     this.chainParryTick = 0;    // damage cadence
     this.chainParryBeats = 0;   // how many retaliations so far
@@ -3541,6 +3631,8 @@ class Player {
     this.chainConvert = 0;     // seconds left to convert a boss latch into 鎖パリィ
     this.chainParryCd = 0;
     this.parryStrikeCd = 0;
+    this.parryNumberEcho = 0;   // this frame's parry hits print their damage number
+    this.parryPressFlash = 0;   // aim cursor flashes whenever the shield is raised
 
     // Arcane Traversal Whip (Swing & Enemy Pull)
     this.grapple = null; // { kind:'anchor'|'enemy', target, ax, ay, len, angle, angVel, timer }
@@ -3633,11 +3725,18 @@ class Player {
 
   startParry() {
     if (this.dead || this.parryCooldown > 0 || this.parryTimer > 0) return;
-    // 【秘技】any latch (grapple on an enemy OR a held chain) + parry = 鎖パリィ
+    this.parryPressFlash = 0.3;   // カーソル（照準）が反応したことを見せる
+    // 【応用】鎖パリィ — 鎖が相手に刺さっている間は、L（パリィ）が必ず
+    // その相手への追撃になる。刺さった瞬間だけでなく、刺さっている間いつでも発動OK。
     if (this.chainParry > 0) { this.chainParryRetaliate(); return; }
     if (this.grapple && this.grapple.kind !== 'anchor') { this.chainParryRetaliate(); return; }
     // freshly lodged chain (from a grapple-pounce or a boss latch): press L now
     if (this.chainLatch && this.chainConvert > 0) { this.chainParryRetaliate(); return; }
+    // chain still embedded in a living target → parry = 鎖パリィ (damage the target)
+    if (this.chainLatch && this.chainLatch.kind !== 'anchor' && this.chainParryTarget()) {
+      this.chainParryRetaliate();
+      return;
+    }
     // Hanging on the whip right next to a foe counts too — parry converts the swing
     // into a chain latch (the classic "stick to the boss and parry forever" trick).
     if (this.grapple) {
@@ -3654,11 +3753,25 @@ class Player {
     this.parryCooldown = d.parryWindow + d.parryCooldown;
     this.atkState = null;
     this.game.sound.sfx('parryStart');
-    this.parryStrike();
+    // 押した瞬間の打撃も数字で見せる（難易度で威力が変わるのが分かるように）
+    this.parryNumberEcho = 0.05;
+    this.parryStrike(1);
+    this.parryNumberEcho = 0;
+    // EXPERT & M: 受け身だけでは勝てないので、聖盾の打撃でも HP を削れる
+    // （パリィ主体ビルド〈パリィのみクリア〉の成立に必要な最低保証）
+    if (d.parryChip) {
+      const box = this.parryStrikeBox();
+      if (this.game.boss && !this.game.boss.dead) {
+        const bb = this.game.boss.hitbox;
+        if (rectOverlap(box.x, box.y, box.w, box.h, bb.x, bb.y, bb.w, bb.h)) {
+          this.game.boss.takeDamage(Math.max(1, Math.round(this.parryDamage() * 0.35)), true);
+        }
+      }
+    }
   }
 
   // =====================================================================
-  // 【秘技】鎖パリィ (Chain Parry)
+  // 【応用】鎖パリィ (Chain Parry)
   // Hold the whip's chain onto something, then parry: instead of dropping the
   // latch, the chain stays embedded and every parry sends a shock down it.
   // Works exactly like the stick-to-a-boss parry quirk, but as a real move.
@@ -3702,23 +3815,35 @@ class Player {
       if (this.chainParry > 0) this.chainParry = 0;
     }
     if (this.chainTarget && !this.chainTarget.dead) return this.chainTarget;
+    if (this.chainLatch && this.chainLatch.ref && !this.chainLatch.ref.dead) return this.chainLatch.ref;
     if (this.grapple && this.grapple.kind !== 'anchor' && this.grapple.ref && !this.grapple.ref.dead) return this.grapple.ref;
     if (this.chainLatch && this.chainLatch.kind === 'boss' && this.game.boss && !this.game.boss.dead) return this.game.boss;
     if (this.chainLatch && this.chainLatch.kind === 'boss' && this.game.boss && !this.game.boss.dead) return this.game.boss;
     return null;
   }
 
+  // パリィの威力は難易度に比例する（EASYが最小、Mが最大）。
+  // 手加減が要る EASY ほど弱く、本気の難易度ほど聖盾が重くなる。
   parryDamage() {
     const d = this.game.diff;
-    return Math.round((11 + d.tier * 3) * Math.max(1, d.playerDmgMult));
+    const mult = d.parryDmgMult === undefined ? 1 : d.parryDmgMult;
+    return Math.max(1, Math.round(d.parryBase * mult));
+  }
+
+  // パリィは正面の広い範囲を焼く（敵の攻撃を弾くだけでなく攻撃手段）
+  parryStrikeBox() {
+    // 正面だけでなく頭上も焼く。浮遊するボスでも「2段ジャンプ→パリィ」で
+    // 届くように、上方向のリーチを広めに取っている。
+    const w = 104, h = 136;
+    const bx = this.facing > 0 ? this.x + 2 : this.x - 2 - w;
+    return { x: bx, y: this.centerY - h * 0.74, w, h };
   }
 
   // The holy shield is a weapon: everything in front of Rose gets scorched.
-  parryStrike() {
-    const w = 74, h = 66;
-    const bx = this.facing > 0 ? this.x + 6 : this.x - 6 - w;
-    const by = this.centerY - h / 2;
-    const dmg = this.parryDamage();
+  parryStrike(mult) {
+    const box = this.parryStrikeBox();
+    const bx = box.x, by = box.y, w = box.w, h = box.h;
+    const dmg = Math.max(1, Math.round(this.parryDamage() * (mult || 1)));
     let hit = false;
     for (const e of this.game.enemies) {
       if (e.dead) continue;
@@ -3758,7 +3883,11 @@ class Player {
     const d = this.game.diff;
     if (this.chainParryCd > 0) { this.triggerParrySuccess(this.x + this.facing * 30, this.centerY); return; }
     this.chainParryCd = 0.3;
-    const target = this.chainParryTarget();
+    // When the chain is ALREADY buried in a target, the retaliation goes to that
+    // target first — that is the whole point of 鎖パリィ.
+    const lodged = this.chainLatch && this.chainLatch.kind !== 'anchor' &&
+      this.chainLatch.ref && !this.chainLatch.ref.dead ? this.chainLatch.ref : null;
+    const target = lodged || this.chainParryTarget();
     if (!target) {
       // nothing on the other end of the chain — the technique simply fizzles
       this.chainParry = 0; this.chainLatch = null; this.chainTarget = null; this.chainConvert = 0;
@@ -3777,7 +3906,13 @@ class Player {
     this.chainTarget = target;
     const sx = Number.isFinite(anchorX) ? anchorX : this.x + this.facing * 60;
     const sy = Number.isFinite(anchorY) ? anchorY : this.centerY;
-    this.chainLatch = { kind: target ? (target === this.game.boss ? 'boss' : 'enemy') : 'anchor', ax: sx, ay: sy, len: Math.hypot(sx - this.x, sy - this.centerY) };
+    this.chainLatch = {
+      kind: target ? (target === this.game.boss ? 'boss' : 'enemy') : 'anchor',
+      ref: target || null,
+      ox: target ? (sx - target.x) : 0,
+      oy: target ? (sy - (target.centerY !== undefined ? target.centerY : target.y)) : 0,
+      ax: sx, ay: sy, len: Math.hypot(sx - this.x, sy - this.centerY),
+    };
 
     // The parry itself resolves as a normal success (i-frames, MP, hitstop)
     this.triggerParrySuccess(anchorX, anchorY);
@@ -3791,8 +3926,11 @@ class Player {
       if (target === this.game.boss || target.isBoss) {
         if (this.game.boss && this.game.boss.takeDamage(dmg, true)) hits++;
       } else if (this.game.damageEnemy(target, dmg, true, false, anchorX)) hits++;
-      this.chainLatch.ax = target.x; this.chainLatch.ay = target.centerY;
+      // the retaliation itself can finish the target — the latch may already be gone
+      if (this.chainLatch) { this.chainLatch.ax = target.x; this.chainLatch.ay = target.centerY; }
     }
+    // the target may have died from the retaliation itself: no latch, no splash
+    if (!this.chainLatch) { this.game.sound.sfx('chainParry'); return; }
     // Splash down the chain: everything along the taut line gets scorched.
     const mdx = (this.chainLatch.ax - this.x), mdy = (this.chainLatch.ay - this.centerY);
     const mlen = Math.max(1, Math.hypot(mdx, mdy));
@@ -3820,8 +3958,15 @@ class Player {
     // Follow a living target; if it dies the chain snaps and the buff ends.
     const target = this.chainParryTarget();
     if (this.chainLatch) {
-      if (target && Number.isFinite(target.x) && Number.isFinite(target.centerY)) { this.chainLatch.ax = target.x; this.chainLatch.ay = target.centerY; }
-      else if (this.chainLatch.kind === 'enemy') { this.chainParry = Math.min(this.chainParry, 0.2); }
+      const lx = this.chainLatch.ref && !this.chainLatch.ref.dead ? this.chainLatch.ref : target;
+      if (lx && Number.isFinite(lx.x)) {
+        const ly = lx.centerY !== undefined ? lx.centerY : lx.y;
+        if (Number.isFinite(ly)) {
+          // keep the exact spot the hook bit into, so the line follows a moving foe
+          this.chainLatch.ax = lx.x + (this.chainLatch.ox || 0);
+          this.chainLatch.ay = ly + (this.chainLatch.oy || 0);
+        }
+      } else if (this.chainLatch.kind === 'enemy') { this.chainParry = Math.min(this.chainParry, 0.2); }
       const maxLen = 470;
       const dist = Math.hypot(this.chainLatch.ax - this.x, this.chainLatch.ay - this.centerY);
       if (dist > maxLen) { this.chainParry = 0; this.game.spawnText(this.x, this.y - 66, '鎖 切断', '#b9a58c', 12); }
@@ -3863,9 +4008,12 @@ class Player {
     this.game.spawnText(this.x, this.y - 60, 'PARRY!', '#ffe680', 15);
     this.game.spawnParticles(sourceX || this.x + this.facing * 18, sourceY || this.centerY, '#ffe680', 20, 240);
     this.game.rings.push({ x: this.x + this.facing * 14, y: this.centerY, r: 8, maxR: 78, color: '#ffe680', alpha: 1 });
-    // Parry = counter-attack: a free holy bash lands the moment you deflect
+    // Parry = counter-attack: a free holy bash lands the moment you deflect,
+    // and a *successful* deflect hits much harder than a whiffed shield swing.
     this.parryStrikeCd = 0;
-    this.parryStrike();
+    this.parryNumberEcho = 0.05;
+    this.parryStrike(this.game.diff.parryCounterMult || 1.6);
+    this.parryNumberEcho = 0;
 
     // Relic: Family's Grace emits a holy shockwave damaging nearby enemies & boss!
     if (this.game.hasRelic('familys_grace')) {
@@ -4194,7 +4342,7 @@ class Player {
       const b = target.ref;
       this.grapple = { kind: 'boss', ref: b, ax: b.x, ay: b.centerY, timer: 0 };
       // The chain stays embedded in the boss for a moment — parry now!
-      this.chainLatch = { kind: 'boss', ax: b.x, ay: b.centerY, len: Math.hypot(b.x - this.x, b.centerY - this.centerY) };
+      this.chainLatch = { kind: 'boss', ref: b, ox: 0, oy: 0, ax: b.x, ay: b.centerY, len: Math.hypot(b.x - this.x, b.centerY - this.centerY) };
       this.chainConvert = 1.1;
       this.game.spawnText(this.x, this.y - 70, '鎖 命中 — L で鎖パリィ', '#ffd27d', 13);
     } else {
@@ -4249,6 +4397,8 @@ class Player {
     this.updateChainParry(dt);
     this.updateParryStrike(dt);
     if (this.chainParryCd > 0) this.chainParryCd -= dt;
+    if (this.parryPressFlash > 0) this.parryPressFlash -= dt;
+    if (this.parryNumberEcho > 0) this.parryNumberEcho -= dt;
     if (this.chainConvert > 0) {
       this.chainConvert -= dt;
       if (this.chainConvert <= 0) {
@@ -4365,7 +4515,12 @@ class Player {
         const b = g.ref;
         if (!b || b.dead || g.timer > 1.05) {
           this.grapple = null;
-          this.chainLatch = null;
+          // the line goes slack, but the hook stays in the boss: L = 鎖パリィ
+          if (!b || b.dead) this.chainLatch = null;
+          else if (!this.chainLatch) {
+            this.chainLatch = { kind: 'boss', ref: b, ox: 0, oy: 0, ax: b.x, ay: b.centerY, len: 90 };
+            this.chainConvert = Math.max(this.chainConvert, 1.1);
+          }
           this.grappleCooldown = 0.2;
         } else {
           g.ax = b.x; g.ay = b.centerY;
@@ -4394,6 +4549,13 @@ class Player {
             // Pounce arrival slash & aerial vault! (Canonical Belmont's Curse move!)
             const dmg = Math.round(28 * d.playerDmgMult);
             this.game.damageEnemy(e, dmg, true, false, this.x);
+            // the chain stays lodged in the target for a moment: pressing L now
+            // turns the parry into 鎖パリィ against exactly this enemy
+            if (!e.dead) {
+              this.chainLatch = { kind: 'enemy', ref: e, ox: 0, oy: 0, ax: e.x, ay: e.y - e.h * 0.5,
+                len: Math.hypot(e.x - this.x, (e.y - e.h * 0.5) - this.centerY) };
+              this.chainConvert = Math.max(this.chainConvert, 1.1);
+            }
             this.gainMp(12);
             this.vx = -this.facing * 120;
             this.vy = -490;
@@ -4404,7 +4566,7 @@ class Player {
             this.game.sound.sfx('tipper');
             // Chain stays lodged in the target for a beat — parry now to 鎖パリィ
             this.chainTarget = e;
-            this.chainLatch = { kind: 'enemy', ax: e.x, ay: e.y - e.h * 0.5, len: 40 };
+            this.chainLatch = { kind: 'enemy', ref: e, ox: 0, oy: 0, ax: e.x, ay: e.y - e.h * 0.5, len: 40 };
             this.chainConvert = Math.max(this.chainConvert, 0.9);
           } else {
             const spd = 820;
@@ -7519,7 +7681,39 @@ class Renderer {
       ctx.restore();
     }
 
-    // ---- 【秘技】鎖パリィ — held chain, crackling with holy light ----
+    // ---- chain lodged in a foe (press L now!) — show the hook so the player
+    // knows the 鎖パリィ is available even before the window opens ----
+    if (p.chainParry <= 0 && p.chainLatch && p.chainLatch.kind !== 'anchor' &&
+        Number.isFinite(p.chainLatch.ax) && Number.isFinite(p.chainLatch.ay)) {
+      ctx.save();
+      const lx = p.chainLatch.ax - camX, ly = p.chainLatch.ay;
+      ctx.strokeStyle = 'rgba(255,226,150,0.55)';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(x, p.centerY);
+      ctx.quadraticCurveTo((x + lx) / 2, (p.centerY + ly) / 2 + 10, lx, ly);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const gg2 = ctx.createRadialGradient(lx, ly, 1, lx, ly, 16);
+      gg2.addColorStop(0, 'rgba(255,240,190,0.9)');
+      gg2.addColorStop(1, 'rgba(255,190,80,0)');
+      ctx.fillStyle = gg2;
+      ctx.beginPath();
+      ctx.arc(lx, ly, 16, 0, Math.PI * 2);
+      ctx.fill();
+      // prompt only once the flight line is gone (during the pounce the game
+      // already pops "鎖 命中 — L で鎖パリィ")
+      if (!p.grapple) {
+        ctx.fillStyle = 'rgba(255,236,170,0.95)';
+        ctx.font = '700 11px "Hiragino Kaku Gothic ProN", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('鎖 — L で鎖パリィ', lx, ly + 30);
+      }
+      ctx.restore();
+    }
+
+    // ---- 【応用】鎖パリィ — held chain, crackling with holy light ----
     if (p.chainParry > 0 && p.chainLatch && Number.isFinite(p.chainLatch.ax) && Number.isFinite(p.chainLatch.ay)) {
       ctx.save();
       const lx = p.chainLatch.ax - camX;
@@ -8982,12 +9176,21 @@ class Renderer {
     ctx.save();
     ctx.textAlign = 'center';
     for (const ft of game.damageTexts) {
-      ctx.globalAlpha = Math.max(0, Math.min(1, ft.life / ft.maxLife * 1.6));
+      const k = Math.max(0, Math.min(1, ft.life / ft.maxLife));
+      ctx.globalAlpha = Math.max(0, Math.min(1, k * 1.6));
       ctx.fillStyle = ft.color;
-      ctx.font = `800 ${ft.size}px "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif`;
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
-      ctx.shadowBlur = 6;
-      ctx.fillText(ft.text, ft.x - camX, ft.y);
+      // パリィのように「押した瞬間に当てた」数字は一段大きく、縁取り付きで見せる
+      const sz = ft.ignore ? Math.round(ft.size * 1.25) : ft.size;
+      ctx.font = `800 ${sz}px "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif`;
+      ctx.shadowColor = ft.ignore ? 'rgba(255,220,120,0.95)' : 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = ft.ignore ? 14 : 6;
+      const ty = ft.ignore ? ft.y - (1 - k) * 26 : ft.y;
+      if (ft.ignore) {
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(20,8,4,0.85)';
+        ctx.strokeText(ft.text, ft.x - camX, ty);
+      }
+      ctx.fillText(ft.text, ft.x - camX, ty);
     }
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -9138,6 +9341,9 @@ class Game {
     this.held = { left: false, right: false, jump: false, down: false };
     this.touchHeld = { left: false, right: false, jump: false, down: false };
     this.touchEdge = { jump: false, parry: false, dash: false, grapple: false, attack: false, arcana: false, flask: false };
+    // 照準カーソル（聖盾パリィ）用のポインタ状態
+    this.pointer = { x: 0, y: 0, inside: false, down: false, right: false };
+    this.aimFlash = 0;
     this.edge = { jump: false, parry: false, dash: false, grapple: false, attack: false, arcana: false, flask: false };
     this.bannerTimer = 0;
     // Runtime collections must exist before the first frame (the title screen
@@ -9355,10 +9561,20 @@ class Game {
     this.canvas.addEventListener('mousedown', (ev) => {
       this.sound.unlock();
       if (this.state !== 'playing' || this.modalOpen) return;
-      if (ev.button === 0) this.edge.attack = true;
-      if (ev.button === 2) { this.edge.parry = true; ev.preventDefault(); }
+      if (ev.button === 0) { this.edge.attack = true; this.pointer.down = true; }
+      if (ev.button === 2) { this.edge.parry = true; this.pointer.right = true; ev.preventDefault(); this.aimFlash = 0.3; }
     });
+    window.addEventListener('mouseup', () => { this.pointer.down = false; this.pointer.right = false; });
     this.canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+    // 照準カーソル: ゲーム中のポインタ位置を覚えて、聖盾パリィの照準を描く
+    const trackPointer = (ev) => {
+      const rect = this.canvas.getBoundingClientRect();
+      this.pointer.x = ev.clientX - rect.left;
+      this.pointer.y = ev.clientY - rect.top;
+      this.pointer.inside = true;
+    };
+    this.canvas.addEventListener('mousemove', trackPointer);
+    this.canvas.addEventListener('mouseleave', () => { this.pointer.inside = false; this.pointer.down = false; this.pointer.right = false; });
     this.bindTouchControls();
     window.addEventListener('resize', () => {
       this.renderer.resize();
@@ -9689,7 +9905,9 @@ class Game {
       if ((e.minTier || 0) > this.diff.tier) continue;
       if (!ENEMY_SPECS[e.type]) continue;            // unknown type: skip, never crash a stage load
       try {
-        this.enemies.push(new Enemy(this, e.type, e.x, e.y));
+        const en = new Enemy(this, e.type, e.x, e.y);
+        if (!this.specFlies(e.type)) this.settleEnemy(en);
+        this.enemies.push(en);
       } catch (err) {
         // a broken enemy definition must not take the whole stage down
       }
@@ -9807,6 +10025,7 @@ class Game {
       }
       if (steps >= MAX_STEPS) this.accum = 0;
       this.renderer.render(this, dt);
+      this.drawAimCursor();
     } catch (err) {
       // Never let a single bad frame stop the game loop.
       console.error('[frame]', err);
@@ -9816,9 +10035,91 @@ class Game {
   }
 
   // =====================================================================
+  // AIM CURSOR — 聖盾パリィの照準（PCのマウスカーソルを置き換える）
+  // ゲーム中は OS の矢印カーソルを消し、パリィ可能／クールダウン中で
+  // 見た目が変わる照準を描く。
+  // =====================================================================
+  drawAimCursor() {
+    const cv = this.canvas;
+    const ctx = cv.getContext('2d');
+    const isTouchLike = this.isTouch || window.matchMedia('(hover: none)').matches;
+    if (isTouchLike || !this.pointer.inside) { cv.style.cursor = ''; return; }
+    if (this.state !== 'playing' || this.modalOpen) { cv.style.cursor = ''; return; }
+    cv.style.cursor = 'none';
+
+    const P = this.player;
+    const dpr = this.renderer.dpr || 1;
+    const x = this.pointer.x * dpr;
+    const y = this.pointer.y * dpr;
+    const ready = !P || ((P.parryCooldown || 0) <= 0 && (P.parryTimer || 0) <= 0);
+    const flash = Math.max(0, this.aimFlash || 0, (P && P.parryPressFlash) || 0) / 0.3;
+    const t = performance.now() / 1000;
+    const spin = t * (ready ? 0.9 : 0.35);
+    const r = (ready ? 11 : 9) + flash * 7;
+    const col = ready ? '#ffe08a' : '#7f8aa0';
+    const glow = ready ? 'rgba(255,205,110,0.95)' : 'rgba(120,135,160,0.5)';
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.translate(x, y);
+
+    // 中心の点
+    ctx.fillStyle = col;
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 10 * dpr;
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.2 * dpr, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 外環（パリィ可能=金 / 再使用待ち=灰）
+    ctx.lineWidth = 1.7 * dpr;
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = ready ? 0.85 : 0.55;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * dpr, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 回転する十字の羽根（照準らしさ）
+    ctx.globalAlpha = ready ? 0.95 : 0.4;
+    ctx.rotate(spin);
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(0, 0, (r + 3) * dpr, i * Math.PI / 2 + 0.25, i * Math.PI / 2 + Math.PI / 2 - 0.25);
+      ctx.stroke();
+    }
+    ctx.rotate(-spin);
+    // 四方向の目盛り
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2 + Math.PI / 4;
+      ctx.moveTo(Math.cos(a) * (r - 4) * dpr, Math.sin(a) * (r - 4) * dpr);
+      ctx.lineTo(Math.cos(a) * (r + 1) * dpr, Math.sin(a) * (r + 1) * dpr);
+    }
+    ctx.stroke();
+
+    // パリィ発動の瞬間: 弾ける輪
+    if (flash > 0.01) {
+      ctx.globalAlpha = flash * 0.9;
+      ctx.lineWidth = 2.4 * dpr;
+      ctx.strokeStyle = '#fff3c4';
+      ctx.beginPath();
+      ctx.arc(0, 0, (r + 9 + (1 - flash) * 16) * dpr, 0, Math.PI * 2);
+      ctx.stroke();
+      // 反撃方向（プレイヤーの向き）
+      const dir = P ? P.facing : 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(dir * (18 + (1 - flash) * 34) * dpr, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // =====================================================================
   // UPDATE
   // =====================================================================
   update(dt) {
+    if (this.aimFlash > 0) this.aimFlash -= dt;
     if (this.shakeTime > 0) this.shakeTime -= dt;
     if (this.flashTimer > 0) this.flashTimer -= dt;
     if (this.bannerTimer > 0) {
@@ -10044,6 +10345,45 @@ class Game {
     }
   }
 
+  // 歩行タイプの敵だけが「地面に置かれる」対象。書かれている y が階段や
+  // 柱の内部を指していても、埋まったまま動けなくならないよう足場へ載せ直す。
+  specFlies(type) {
+    const spec = ENEMY_SPECS[type];
+    if (!spec) return true;
+    return !!(spec.flying || spec.fly || spec.hover || spec.float);
+  }
+
+  settleEnemy(en) {
+    const room = this.room;
+    if (!room) return;
+    const solids = this.activeSolids();
+    const overlaps = (x, y) => {
+      const left = x - en.w / 2 + 3, top = y - en.h + 3;
+      for (const s of solids) {
+        if (left + en.w - 6 > s.x && left < s.x + s.w && top + en.h - 6 > s.y && top < s.y + s.h) return true;
+      }
+      return false;
+    };
+    if (!overlaps(en.x, en.y)) return;   // already standing somewhere sane
+    const homeX = en.x;
+    en.vy = 0;
+    // 1) 上へ抜け出してそのまま落とす
+    for (const up of [24, 48, 72, 96, 140, 190, 240]) {
+      if (!overlaps(homeX, en.y - up)) { en.y -= up; return; }
+    }
+    // 2) 左右へずらす（同じ高さのまま）
+    for (const dx of [40, -40, 80, -80, 130, -130, 200, -200]) {
+      const nx = homeX + dx;
+      if (nx < 40 || nx > room.w - 40) continue;
+      if (!overlaps(nx, en.y)) { en.x = nx; en.homeX = nx; return; }
+      for (const up of [24, 60, 110, 170]) {
+        if (!overlaps(nx, en.y - up)) { en.x = nx; en.homeX = nx; en.y -= up; return; }
+      }
+    }
+    // 3) 出口が無ければ床の上へ（少なくとも壁の中には置かない）
+    en.y = Math.min(600, this.groundBelow(homeX, 40));
+  }
+
   groundBelow(x, y) {
     let best = this.room.h + 200;
     for (const s of this.activeSolids()) {
@@ -10221,7 +10561,10 @@ class Game {
         if (tr.timer <= 0) {
           tr.timer = (tr.interval || 3) / this.diff.enemySpeedMult;
           const side = Math.random() < 0.5 ? -1 : 1;
-          const sy = tr.yMin + Math.random() * Math.max(20, tr.yMax - tr.yMin);
+          // 出現Yは必ず数値にする（未指定のスポナーでも NaN を出さない）
+          const yLo = Number.isFinite(tr.yMin) ? tr.yMin : 300;
+          const yHi = Number.isFinite(tr.yMax) ? tr.yMax : 560;
+          const sy = yLo + Math.random() * Math.max(20, yHi - yLo);
           const ex = side < 0 ? this.camX - 30 : this.camX + VIEW_W + 30;
           const type = tr.golden ? 'gmedusa' : 'medusa';
           const en = new Enemy(this, type, ex, sy);
@@ -10491,9 +10834,9 @@ class Game {
     return clamp((this.held.right || this.touchHeld.right ? 1 : 0) + (this.held.left || this.touchHeld.left ? -1 : 0), -1, 1);
   }
 
-  spawnText(x, y, text, color, size) {
+  spawnText(x, y, text, color, size, ignore = false) {
     if (this.damageTexts.length > 60) this.damageTexts.shift();
-    this.damageTexts.push({ x, y, text, color: color || '#fff', size: size || 13, life: 0.95, maxLife: 0.95 });
+    this.damageTexts.push({ x, y, text, color: color || '#fff', size: size || 13, life: 0.95, maxLife: 0.95, ignore: !!ignore });
   }
 
   spawnParticles(x, y, color, count, speed, gravity) {
@@ -10530,6 +10873,7 @@ class Game {
   damageEnemy(e, dmg, holy, isCrit, sourceX) {
     if (!e || e.dead || e.reviveTimer > 0) return false;
     let amount = Math.max(1, Math.round(dmg));
+    const forceNumber = this.player && this.player.parryNumberEcho > 0;
     // Vampire knight frontal shield
     if (e.type === 'vampknight' && e.spec.shielded && !holy) {
       const fromFront = (sourceX !== undefined ? sourceX : this.player.x) > e.x === (e.facing > 0);
@@ -10543,7 +10887,7 @@ class Game {
     }
     e.hp -= amount;
     e.hurtFlash = 0.14;
-    this.spawnText(e.x, e.y - e.h - 6, `${amount}${isCrit ? '!' : ''}`, holy ? '#9ff3ff' : '#ffe9b0', isCrit ? 16 : 13);
+    this.spawnText(e.x, e.y - e.h - 6, `${amount}${isCrit ? '!' : ''}`, holy ? '#9ff3ff' : '#ffe9b0', isCrit ? 16 : 13, forceNumber);
     this.spawnParticles(e.x, e.y - e.h * 0.5, holy ? '#9ff3ff' : '#ff9a7a', 9, 170);
     this.hitstop = Math.max(this.hitstop, isCrit ? 0.055 : 0.03);
     this.sound.sfx(isCrit ? 'tipper' : 'hit');
@@ -11141,13 +11485,14 @@ class Game {
         <div>
           <div class="modal-section-title">操作</div>
           <div class="info-box">
-            移動 A/D・←/→　跳躍 Space/W/Z（壁蹴り可）<br>
+            移動 A/D・←/→　跳躍 Space/W/Z（空中でもう一度で2段ジャンプ・全難易度）<br>
             攻撃 J/X/左クリック　聖盾パリィ L/F/右クリック（正面に打撃判定）<br>
             スライド・バックステップ Shift　鞭スイング K/E<br>
             タロット U/C　聖水 Q　武器切替 1〜4/Tab<br>
             アルカナ切替 Y　マップ M　命の鏡で T 転移<br>
             ポーズ Esc/P　消音 V<br>
-            <span style="color:#ffd27d">パリィ＝攻撃。さらに鎖を当てた直後に L で「鎖パリィ」</span>
+            <span style="color:#ffd27d">パリィは攻撃でもあり、威力は難易度が上がるほど強くなる（EASY &lt; M）。<br>
+            鎖が刺さっている間は、いつでも L（パリィ）でその相手に「鎖パリィ」の追撃が入る</span>
           </div>
         </div>
       </div>
@@ -11460,7 +11805,7 @@ window.addEventListener('load', () => {
             <div class="modal-section-title">基本操作</div>
             <div class="info-box">
               移動：A / D・←/→<br>
-              跳躍：Space / W / Z / ↑（長押しで高く、壁で蹴り上がり）<br>
+              跳躍：Space / W / Z / ↑（長押しで高く、空中でもう一度押すと2段ジャンプ・全難易度共通）<br>
               攻撃：J / X / 左クリック<br>
               聖盾パリィ：L / F / 右クリック（弾き返す＋目前の敵に聖なる打撃）<br>
               スライディング・バックステップ：Shift（無敵時間あり）<br>
@@ -11477,7 +11822,11 @@ window.addEventListener('load', () => {
               ・長剣は<b>バックステップ直後</b>の一撃が1.75倍。<br>
               ・セスタスは<b>連続ヒット</b>で威力が最大2倍。<br>
               ・敵の攻撃は<b>パリィ</b>で無効化＋MP回復。<br>
-              ・パリィは<b>攻撃でもある</b>：押した瞬間と成功時に、正面へ聖なる打撃。<br>
+              ・パリィは<b>攻撃でもある</b>：押した瞬間と成功時に、正面＋頭上へ聖なる打撃。<br>
+              ・<b>鎖パリィ</b>：鎖（K/E）を相手に刺したら、<u>刺さっている間はいつでも L でその相手に追撃</u>。<br>
+              　刺さった瞬間に限らず、鎖が刺さっている限り何度でも入り、続けて決めるほど威力が上がる。<br>
+              ・<u>パリィの威力は難易度が上がるほど強くなる</u>（EASY &lt; NORMAL &lt; HARD &lt; EXPERT &lt; M）。<br>
+              　EASYでは控えめ、Mでは聖盾が最も重い一撃になる。どの難易度でもパリィだけで押し切れる。<br>
               ・飛び道具をパリィすると<b>来た角度のまま撃ち返す</b>。斜め上から来た矢は斜め上へ。<br>
               ・燭台を壊すとMP回復、隠し壁からはウォールミート。<br>
               ・命の鏡がチェックポイント＆全回復＆転移。<br>
@@ -11490,11 +11839,8 @@ window.addEventListener('load', () => {
             </div>
           </div>
         </div>
-        <div class="modal-section-title" style="color:#ffd27d">【秘技】鎖パリィ — CHAIN PARRY</div>
-        <div class="info-box" style="border-color:rgba(255,210,125,0.5); background:linear-gradient(180deg, rgba(60,40,12,0.55), rgba(24,14,10,0.75));">
-          鞭（<b>K / E</b>）で敵やボスに鎖を当て、刺さっている間に聖盾パリィ（<b>L / F</b>）。<br>
-          鎖が刺さったまま聖なる衝撃が流れ続け、張り付いた相手を刻み続ける。連続パリィで延長＆威力上昇。<br>
-          鎖が伸びすぎる（相手が遠い）と切れる。密着しすぎると本体の接触ダメージを受けるので、間合いが肝心。
+        <div class="info-box" style="border-color:rgba(214,177,126,0.3); margin-top:2px">
+          鎖パリィは<b>密着しすぎると本体の接触ダメージ</b>を受けます。鎖が伸びすぎる（相手が遠い）と切れるので、間合いが肝心。
         </div>
         <div class="modal-footer"><button class="gothic-btn" data-action="resume">閉じる</button></div>
       `);
@@ -11503,5 +11849,5 @@ window.addEventListener('load', () => {
 });
 
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5f80235af387b7d',t:'MTc5NTUxOTA2MQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5f80235af387b7d',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
