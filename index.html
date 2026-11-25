@@ -1051,6 +1051,56 @@ html, body {
   .tc-swap { bottom: 58px; height: 20px; font-size: 9px; }
 }
 
+/* ===== RTA TIMER ===== */
+#rta-hud {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 14px 5px;
+  border: 1px solid rgba(255, 214, 130, 0.55);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(28, 16, 12, 0.88), rgba(10, 7, 10, 0.92));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7), 0 0 18px rgba(255, 180, 80, 0.18);
+  z-index: 14;
+  pointer-events: none;
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+#game-root.rta-mode.playing #rta-hud { display: flex; }
+#rta-time {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ffe6ad;
+  text-shadow: 0 0 12px rgba(255, 180, 80, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+#rta-sub { font-size: 9.5px; letter-spacing: 0.12em; color: #b9a58c; }
+#rta-hud.rta-paused #rta-time { color: #8b93a8; text-shadow: none; }
+
+/* Title: RTA record list */
+.rta-record {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10.5px;
+  color: #ded1c1;
+  padding: 3px 2px;
+  border-bottom: 1px solid rgba(214, 177, 126, 0.16);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+.rta-record b { color: #ffe6ad; font-variant-numeric: tabular-nums; }
+.rta-record .rta-diff { min-width: 62px; color: #c9a165; }
+@media (max-height: 430px) {
+  #rta-hud { top: 2px; padding: 2px 10px 3px; }
+  #rta-time { font-size: 17px; }
+  #rta-sub { display: none; }
+}
+
 </style>
 </head>
 <body>
@@ -1127,6 +1177,12 @@ html, body {
   </div>
   <div id="rotate-hint">端末を横向きにすると遊びやすくなります<span>（そのままでも遊べます）</span></div>
 
+  <!-- RTA Timer -->
+  <div id="rta-hud">
+    <div id="rta-time">0:00.000</div>
+    <div id="rta-sub">RTA — 200 STAGES</div>
+  </div>
+
   <!-- Center Banner -->
   <div id="center-banner">
     <div id="banner-sub" class="banner-sub"></div>
@@ -1152,6 +1208,7 @@ html, body {
         <button id="start-btn" class="gothic-btn">ゲーム開始</button>
         <button id="newgame-btn" class="gothic-btn secondary" style="display:none">はじめから</button>
         <button id="abyss-btn" class="gothic-btn secondary">深淵編（180面）</button>
+        <button id="rta-btn" class="gothic-btn secondary">RTA計測</button>
         <button id="help-btn" class="gothic-btn secondary">遊び方・操作</button>
       </div>
       <div class="title-controls-hint">
@@ -9505,6 +9562,20 @@ class Game {
       if (this.state === 'title') {
         if (code === 'ArrowLeft' || code === 'KeyA') this.moveDiffSelection(-1);
         if (code === 'ArrowRight' || code === 'KeyD') this.moveDiffSelection(1);
+        if (this.modalOpen) {
+          // RTA計測の難易度選択中は、矢印と Enter をその選択に使う
+          if (code === 'ArrowLeft' || code === 'KeyA' || code === 'ArrowRight' || code === 'KeyD') {
+            const dir = (code === 'ArrowLeft' || code === 'KeyA') ? -1 : 1;
+            const i = DIFFICULTY_ORDER.indexOf(this.rtaPick || this.selectedDiff);
+            this.rtaPick = DIFFICULTY_ORDER[clamp(i + dir, 0, DIFFICULTY_ORDER.length - 1)];
+            this.openRTASelect();
+            ev.preventDefault();
+            return;
+          }
+          if (code === 'Enter') { ev.preventDefault(); this.closeModal(); this.startRTA(this.rtaPick || this.selectedDiff); return; }
+          if (code === 'Escape') { this.closeModal(); return; }
+          return;
+        }
         if (code === 'Enter' || code === 'Space') { ev.preventDefault(); this.startGame(this.selectedDiff); }
         const digit = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(code);
         if (digit >= 0) { this.selectedDiff = DIFFICULTY_ORDER[digit]; this.renderTitle(); this.previewDifficulty(this.selectedDiff); }
@@ -9556,6 +9627,14 @@ class Game {
     });
     window.addEventListener('blur', () => {
       this.held = { left: false, right: false, jump: false, down: false };
+    });
+    // RTA計測中にタブを離れたら時計を止める
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.rta && this.rta.active && !this.rta.finished) {
+        this.rta.running = false;
+      } else if (!document.hidden && this.rta && this.rta.active && !this.rta.finished && this.state === 'playing') {
+        this.rta.running = !this.modalOpen;
+      }
     });
     // Mouse: click to attack, right click to parry
     this.canvas.addEventListener('mousedown', (ev) => {
@@ -9703,6 +9782,8 @@ class Game {
   }
 
   saveGame() {
+    // RTA 計測中はディスクに書かない（通常プレイの進行を壊さない）
+    if (this.rta && this.rta.active) return;
     const slot = this.slot();
     slot.room = this.roomIdx;
     slot.visited = Array.from(new Set([...(slot.visited || []), ...this.visitedRooms]));
@@ -9728,6 +9809,181 @@ class Game {
   }
 
   // =====================================================================
+  // RTA MODE — 200ステージを1本のタイマーで計測する
+  //   ・タイトルの「RTA計測」→ 難易度選択 → 開始
+  //   ・計測中はセーブ／ロードを一切使わない（進行・死亡・時間を引き継がない）
+  //   ・ポーズ／タブ非表示／モーダル表示中は時計が止まる
+  // =====================================================================
+  startRTA(diffId) {
+    this.rta = {
+      active: true,
+      diff: diffId,
+      time: 0,
+      running: true,
+      finished: false,
+      bestSplit: 0,
+      stageStart: 0,
+      splits: [],
+      record: this.rtaRecord(diffId),
+      saveRoom: null,
+    };
+    // 進行を汚さないよう、この難易度のスロットを退避してから空で始める
+    // （fresh で作った空スロットは startGame の最後で元のスロットに戻る）
+    this.rta.restoreSlot = this.store[diffId] ? JSON.parse(JSON.stringify(this.store[diffId])) : null;
+    this.startGame(diffId, true);
+    this.rta.time = 0;
+    this.rta.stageStart = 0;
+    this.rta.splits = [];
+    this.rta.finished = false;
+    this.rta.running = true;
+    const gr = document.getElementById('game-root');
+    if (gr) { gr.classList.add('rta-mode'); gr.classList.remove('rta-paused'); }
+    this.showBanner('RTA — 計測開始', `${this.diff.name} / 全200ステージ`, 'ポーズ中は時計が止まります。Esc / P でポーズ。');
+    this.updateRTAHud();
+  }
+
+  stopRTA() {
+    if (!this.rta) return;
+    this.rta.active = false;
+    this.rta.running = false;
+    const gr = document.getElementById('game-root');
+    if (gr) { gr.classList.remove('rta-mode'); gr.classList.remove('rta-paused'); }
+  }
+
+  rtaRunning() {
+    return !!(this.rta && this.rta.active && this.rta.running && !this.rta.finished &&
+      this.state === 'playing' && !this.modalOpen);
+  }
+
+  updateRTA(dt) {
+    if (!this.rta || !this.rta.active) return;
+    if (this.rtaRunning()) this.rta.time += dt;
+    const gr = document.getElementById('game-root');
+    if (gr) gr.classList.toggle('rta-paused', !this.rtaRunning() && !this.rta.finished);
+    this.rtaHudAccum = (this.rtaHudAccum || 0) + dt;
+    if (this.rtaHudAccum > 1 / 30) { this.rtaHudAccum = 0; this.updateRTAHud(); }
+  }
+
+  formatRTA(t) {
+    const ms = Math.max(0, Math.floor(t * 1000));
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const sec = Math.floor((ms % 60000) / 1000);
+    const mm = ms % 1000;
+    const head = h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}`;
+    return `${head}:${String(sec).padStart(2, '0')}.${String(mm).padStart(3, '0')}`;
+  }
+
+  updateRTAHud() {
+    const el = document.getElementById('rta-time');
+    const sub = document.getElementById('rta-sub');
+    if (!el) return;
+    if (!this.rta || !this.rta.active) { if (sub) sub.textContent = 'RTA — 200 STAGES'; el.textContent = '0:00.000'; return; }
+    el.textContent = this.formatRTA(this.rta.time);
+    if (sub) {
+      const stage = this.room ? this.roomIdx + 1 : 1;
+      const best = this.rta.record;
+      sub.textContent = this.rta.finished
+        ? `GOAL — ${this.rta.diff.toUpperCase()} / ${this.formatRTA(this.rta.time)}`
+        : `STAGE ${stage}/200　BEST ${best ? this.formatRTA(best) + ' +' + this.formatRTA(this.rta.time - best) : '—'}`;
+    }
+  }
+
+  // RTA のベスト記録（難易度ごと・別ストレージ）
+  rtaRecords() {
+    try {
+      const raw = localStorage.getItem('cvbc_rta_v1');
+      const obj = raw ? JSON.parse(raw) : {};
+      return obj && typeof obj === 'object' ? obj : {};
+    } catch (e) { return {}; }
+  }
+
+  rtaRecord(diffId) {
+    const v = this.rtaRecords()[diffId];
+    return Number.isFinite(v) ? v : null;
+  }
+
+  saveRTARecord(t) {
+    try {
+      const all = this.rtaRecords();
+      if (!Number.isFinite(all[this.rta.diff]) || t < all[this.rta.diff]) {
+        all[this.rta.diff] = t;
+        localStorage.setItem('cvbc_rta_v1', JSON.stringify(all));
+        return true;
+      }
+    } catch (e) { /* 記録できなくてもゲームは続行 */ }
+    return false;
+  }
+
+  // 目標（200面目＝ドラキュラ最終形態）を倒した瞬間
+  finishRTA() {
+    if (!this.rta || !this.rta.active || this.rta.finished) return;
+    this.rta.running = false;
+    this.rta.finished = true;
+    this.updateRTAHud();
+    const isRecord = this.saveRTARecord(this.rta.time);
+    const prev = this.rta.record;
+    const delta = prev !== null ? this.rta.time - prev : null;
+    this.rta.record = this.rtaRecord(this.rta.diff);
+    this.updateRTAHud();
+    this.openModal(`
+      <div class="modal-title">RTA — GOAL</div>
+      <div class="info-box" style="text-align:center;font-size:13px;line-height:1.9">
+        難易度 <b style="color:${this.diff.color}">${this.diff.name}</b>　／　全200ステージ<br>
+        <b style="color:#ffe6ad;font-size:30px;letter-spacing:0.06em;font-variant-numeric:tabular-nums">${this.formatRTA(this.rta.time)}</b><br>
+        ${isRecord ? '<span style="color:#8fe8ff">自己ベスト更新！</span>' : prev !== null ? `自己ベスト ${this.formatRTA(prev)}（${delta > 0 ? '+' : ''}${this.formatRTA(delta)}）` : '初記録'}
+      </div>
+      <div class="victory-stats">
+        <div class="stat-card"><div class="stat-val">${this.stats.deaths}</div><div class="stat-lbl">死亡回数</div></div>
+        <div class="stat-card"><div class="stat-val">${this.stats.parries}</div><div class="stat-lbl">パリィ成功</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:#ffd27d">${this.stats.chainParries || 0}</div><div class="stat-lbl">鎖パリィ</div></div>
+      </div>
+      <div class="modal-footer">
+        <button class="gothic-btn" data-action="rta-retry" data-value="${this.rta.diff}">同じ難易度でもう一度</button>
+        <button class="gothic-btn secondary" data-action="rta-menu">難易度を選び直す</button>
+        <button class="gothic-btn secondary" data-action="title">タイトル</button>
+      </div>
+    `);
+  }
+
+  // RTA 開始用の難易度選択（タイトルの「RTA計測」から）
+  openRTASelect() {
+    this.rtaPick = this.rtaPick || this.selectedDiff || 'normal';
+    const cards = DIFFICULTY_ORDER.map((id) => {
+      const d = DIFFICULTIES[id];
+      const rec = this.rtaRecord(id);
+      return `<button class="mini-btn${id === this.rtaPick ? ' active' : ''}" data-action="rta-pick" data-value="${id}"
+        style="${id === this.rtaPick ? `border-color:${d.color};color:${d.color}` : ''}">${d.name}</button>`;
+    }).join('');
+    const rows = DIFFICULTY_ORDER.map((id) => {
+      const d = DIFFICULTIES[id];
+      const rec = this.rtaRecord(id);
+      return `<div class="rta-record"><span class="rta-diff">${d.name}</span><b>${rec !== null ? this.formatRTA(rec) : '—'}</b></div>`;
+    }).join('');
+    const d = DIFFICULTIES[this.rtaPick];
+    this.openModal(`
+      <div class="modal-title">RTA計測 — TIME ATTACK</div>
+      <div class="info-box">
+        <b>本編20面＋深淵編180面＝全200ステージ</b>を、ノンストップで1本のタイマーで測ります。<br>
+        計測中は<b>セーブ／続きからを使わず</b>、進行状況にも影響しません（記録は別保存）。<br>
+        ポーズ・タブ非表示・メニュー表示中は時計が止まります。死亡しても時計は止まりません。
+      </div>
+      <div class="modal-section-title">難易度を選択（←→ で選択 / Enter で開始）</div>
+      <div class="warp-list">${cards}</div>
+      <div class="info-box" style="border-color:${d ? d.color : '#c9a165'}66">
+        <b style="color:${d ? d.color : '#c9a165'}">${d ? d.name + ' — ' + d.targetText : ''}</b><br>
+        ${d ? d.desc : ''}
+      </div>
+      <div class="modal-section-title">自己ベスト</div>
+      <div>${rows}</div>
+      <div class="modal-footer">
+        <button class="gothic-btn" data-action="rta-start" data-value="${this.rtaPick}">計測スタート（${d ? d.name : ''}）</button>
+        <button class="gothic-btn secondary" data-action="close-modal">閉じる</button>
+      </div>
+    `);
+  }
+
+  // =====================================================================
   // GAME START / ROOM LOADING
   // =====================================================================
   startGame(diffId, fresh) {
@@ -9739,9 +9995,16 @@ class Game {
     // the current room" rule unplayable).
     const keepVisited = new Set(this.visitedRooms && this.visitedRooms.size ? this.visitedRooms : []);
     const keepMirror = this.mirrorRoomIdx;
+    const rtaActive = !!(this.rta && this.rta.active);
     if (fresh) {
       this.store[diffId] = DEFAULT_SLOT();
-      writeSaveStore(this.store);
+      // RTA 計測中はディスクに書かない（通常プレイの進行を絶対に壊さない）
+      if (!rtaActive) writeSaveStore(this.store);
+    }
+    if (rtaActive && this.rta.restoreSlot) {
+      // RTA 開始時に退避した「通常プレイの進行」をメモリに書き戻す
+      this.store[diffId] = this.rta.restoreSlot;
+      this.rta.restoreSlot = null;
     }
     document.documentElement.style.setProperty('--diff-color', this.diff.color);
     const slot = this.slot();
@@ -9845,6 +10108,15 @@ class Game {
   }
 
   loadRoom(idx, fromDir) {
+    // RTA: ステージ通過のスプリット（計測中のみ）
+    if (this.rta && this.rta.active && !this.rta.finished && Number.isFinite(this.rta.stageStart) &&
+        idx !== this.rta.stageStart && Number.isInteger(this.rta.stageStart)) {
+      const t = this.rta.time;
+      if (this.rta.splits.length < 240) this.rta.splits.push({ stage: idx + 1, t });
+      this.rta.lastSplit = { stage: idx + 1, t, seg: t - (this.rta.prevSplitTime || 0) };
+      this.rta.prevSplitTime = t;
+      this.rta.stageStart = idx;
+    }
     this.roomIdx = idx;
     this.room = ROOMS[idx];
     const room = this.room;
@@ -9970,9 +10242,11 @@ class Game {
     if (!room.isBossRoom && room.theme === 'castle') this.sound.playMusic('castle');
     if (!room.isBossRoom && room.theme === 'catacombs') this.sound.playMusic('catacombs');
 
-    // Every abyss chamber opens on its own 命の鏡, so it doubles as the
-    // respawn checkpoint for that stage.
-    if (room.stageNo) { this.mirrorLit = true; this.mirrorRoomIdx = idx; }
+    // Every chamber opens on its own 命の鏡, so the room you just walked into
+    // doubles as the respawn checkpoint for that stage. Mirrors never rewind you
+    // to a room you already left.
+    this.mirrorLit = true;
+    this.mirrorRoomIdx = idx;
 
     this.roomLock = 0.55; // prevents instantly bouncing back through a doorway
     this.showBanner(ACTS[room.act].name, room.name, this.diff.name + ' / ' + room.name);
@@ -10119,9 +10393,12 @@ class Game {
   // UPDATE
   // =====================================================================
   update(dt) {
+    this.updateRTA(dt);
     if (this.aimFlash > 0) this.aimFlash -= dt;
     if (this.shakeTime > 0) this.shakeTime -= dt;
     if (this.flashTimer > 0) this.flashTimer -= dt;
+    // バナーは常にカウントダウンする（以前は state==='dying' の間ストップして、
+    // 復帰後に「死んだ場所のバナー」が残り続けていた）
     if (this.bannerTimer > 0) {
       this.bannerTimer -= dt;
       if (this.bannerTimer <= 0 && this.el.banner) this.el.banner.classList.remove('visible');
@@ -10287,18 +10564,23 @@ class Game {
     }
 
     // ---- Mirror checkpoint ----
+    // 鏡の前で休むと全回復＋セーブ。入った部屋はすでに再開地点なので、
+    // 効果音・エフェクト・「記録せり」の表示は一度だけ出す。
     const mirror = this.room.mirror;
     if (mirror && Math.abs(p.x - mirror.x) < 46 && Math.abs(p.y - mirror.y) < 70) {
-      if (!(this.mirrorLit && this.mirrorRoomIdx === this.roomIdx)) {
-        this.mirrorLit = true;
-        this.mirrorRoomIdx = this.roomIdx;
+      const already = this.mirrorLit && this.mirrorRoomIdx === this.roomIdx;
+      this.mirrorLit = true;
+      this.mirrorRoomIdx = this.roomIdx;
+      p.hp = p.maxHp;
+      p.mp = p.maxMp;
+      p.flasks = this.diff.flaskMax + (this.hasRelic('lost_chalice') ? 2 : 0);
+      p.curseMarks = 0;
+      if (!this.mirrorTouched) this.mirrorTouched = {};
+      if (!already || !this.mirrorTouched[this.roomIdx]) {
+        this.mirrorTouched[this.roomIdx] = true;
         this.sound.sfx('mirror');
-        p.hp = p.maxHp;
-        p.mp = p.maxMp;
-        p.flasks = this.diff.flaskMax + (this.hasRelic('lost_chalice') ? 2 : 0);
-        p.curseMarks = 0;
         this.rings.push({ x: mirror.x, y: mirror.y - 74, r: 8, maxR: 130, color: '#9fe8ff', alpha: 1 });
-        this.spawnText(p.x, p.y - 70, '命の鏡 — 記録せり', '#b8f0ff', 13);
+        this.spawnText(p.x, p.y - 70, already ? '命の鏡 — 全回復' : '命の鏡 — 記録せり', '#b8f0ff', 13);
         this.saveGame();
       }
     }
@@ -11200,7 +11482,14 @@ class Game {
 
     if (spec.isFinal && (!this.room || this.room.finalArena || !this.room.stageNo)) {
       this.abyssCleared = !!this.abyssStarted;
-      setTimeout(() => this.showVictory(), 1500);
+      if (this.rta && this.rta.active) {
+        setTimeout(() => this.finishRTA(), 1200);
+      } else {
+        setTimeout(() => this.showVictory(), 1500);
+      }
+    } else if (this.rta && this.rta.active && this.room && this.room.stageNo >= TOTAL_STAGES) {
+      // 最終ステージの守護者を倒した場合もゴール
+      setTimeout(() => this.finishRTA(), 1200);
     }
   }
 
@@ -11212,21 +11501,44 @@ class Game {
     this.stats.deaths++;
     const key = this.room ? this.room.id : -1;
     this.deathLog[key] = (this.deathLog[key] || 0) + 1;
+    this.deathRoomIdx = this.roomIdx;   // 「どこで死んだか」は respawn の案内に使う
     this.sound.sfx('death');
     this.sound.playMusic('title');
     this.flashTimer = 0.35;
     this.addShake(10, 0.4);
+    // 死んだ場所から再開する（一つ前の部屋の鏡まで巻き戻さない）。
+    // ボス戦で倒れた場合だけは、そのボスの直前のステージからやり直す（respawn 側で処理）。
+    if (!this.room || !this.room.isBossRoom) {
+      this.mirrorLit = true;
+      this.mirrorRoomIdx = this.roomIdx;
+    }
     const p = this.player;
     if (p) { if (p.clearChain) p.clearChain(); this.spawnParticles(p.x, p.centerY, '#ff2e55', 34, 280); }
     if (this.el.bossHud) this.el.bossHud.classList.add('hidden');
     this.saveGame();
   }
 
+  // ボス部屋の「一つ手前の鏡」を探す（守護者の間なら同じ章の直前ステージ）。
+  previousCheckpointIdx(fromIdx) {
+    const room = ROOMS[fromIdx];
+    if (!room || !room.isBossRoom) return -1;
+    let i = fromIdx - 1;
+    // 章の先頭（深淵の守護者の間）なら、その章の1面目の鏡へ
+    if (i < 0) return -1;
+    if (ROOMS[i].isBossRoom) return -1;
+    return i;
+  }
+
   respawn() {
     const p = this.player;
     if (p && p.clearChain) p.clearChain();
     let roomIdx = this.mirrorLit ? this.mirrorRoomIdx : 0;
-    if (!Number.isInteger(roomIdx) || roomIdx < 0 || roomIdx >= ROOMS.length) roomIdx = 0;
+    // ボス戦で倒れたら、そのボスの直前のステージの鏡へ（部屋の入口からやり直し）
+    if (this.room && this.room.isBossRoom) {
+      const prev = this.previousCheckpointIdx(this.roomIdx);
+      if (prev >= 0) roomIdx = prev;
+    }
+    if (!Number.isInteger(roomIdx) || roomIdx < 0 || roomIdx >= ROOMS.length) roomIdx = this.roomIdx;
     const room = ROOMS[roomIdx];
     // Fresh room state (enemies & traps reset) while permanent progress persists
     this.state = 'playing';
@@ -11264,13 +11576,23 @@ class Game {
       if (s.crumble) { s.crumbleState = 'idle'; s.crumbleTimer = 0; }
     }
     this._solidsCacheKey = null;
+    const diedIn = this.deathRoomIdx;
     this.loadRoom(roomIdx, 'respawn');
     this.roomLock = 0.15;
     p.hp = p.maxHp;
     p.mp = p.maxMp;
     p.flasks = this.diff.flaskMax;
     this.sound.playMusic(this.room.isBossRoom ? (this.room.bossId === 'dracula' ? 'dracula' : 'boss') : ACTS[this.room.act].bgm);
-    this.showBanner('命の鏡より再臨', `死 ${this.stats.deaths} 回 — ${this.deathCause}`, this.room.name);
+    // 「なぜ手前の部屋から？」と迷わせないよう、巻き戻した理由を必ず出す。
+    const wentBack = Number.isInteger(diedIn) && diedIn !== roomIdx;
+    this.showBanner(
+      wentBack ? '命の鏡より再臨 — 手前のステージから' : '命の鏡より再臨',
+      wentBack
+        ? `死 ${this.stats.deaths} 回 — ${this.deathCause}（ボス戦で倒れたため STAGE ${diedIn + 1} の入口から）`
+        : `死 ${this.stats.deaths} 回 — ${this.deathCause}`,
+      wentBack ? `やり直し：STAGE ${roomIdx + 1}　${this.room.name}` : this.room.name
+    );
+    this.spawnText(p.x, p.y - 86, wentBack ? 'ボス戦で倒れた — 手前のステージから再開' : '同じステージから再開', '#b8f0ff', 13);
     this.updateHud();
   }
 
@@ -11431,7 +11753,15 @@ class Game {
     if (action === 'resume') this.closeModal();
     else if (action === 'restart') { this.closeModal(); this.startGame(this.diffId, true); }
     else if (action === 'title') { this.closeModal(); this.toTitle(); }
-    else if (action === 'change-diff') { this.closeModal(); this.startGame(value); }
+    else if (action === 'change-diff') {
+      this.closeModal();
+      if (this.rta && this.rta.active) {
+        const msg = 'RTA計測中に難易度を変えると計測が終了します。';
+        this.showBanner('RTA — 計測終了', msg, '難易度を変更しました。再計測はタイトルの「RTA計測」から。');
+        this.stopRTA();
+      }
+      this.startGame(value);
+    }
     else if (action === 'map') this.openMap();
     else if (action === 'abyss') this.openAbyssTable();
     else if (action === 'abyss-start') { this.closeModal(); this.enterAbyss(this.visitedRooms.has(STORY_STAGES) ? 'next' : 'start'); }
@@ -11441,9 +11771,18 @@ class Game {
       this.closeModal();
       this.warpTo(idx);
     } else if (action === 'mute') this.toggleMute();
+    else if (action === 'rta-menu') { this.stopRTA(); this.toTitle(); this.openRTASelect(); }
+    else if (action === 'rta-pick') { this.rtaPick = value; this.openRTASelect(); }
+    else if (action === 'rta-start') { this.closeModal(); this.startRTA(value || this.rtaPick || this.selectedDiff); }
+    else if (action === 'rta-retry') { this.closeModal(); this.startRTA(value || (this.rta && this.rta.diff) || this.selectedDiff); }
+    else if (action === 'rta-toggle') {
+      if (this.rta && this.rta.active) { this.stopRTA(); this.showBanner('RTA — 計測終了', 'タイマーを停止しました', 'タイトルの「RTA計測」からいつでも再開できます。'); }
+      else { this.closeModal(); this.openRTASelect(); }
+    } else if (action === 'close-modal') this.closeModal();
   }
 
   toTitle() {
+    if (this.rta && this.rta.active) this.stopRTA();
     this.state = 'title';
     this.refreshStartLabel();
     this.boss = null;
@@ -11498,6 +11837,9 @@ class Game {
       </div>
       <div class="modal-section-title">難易度変更（進行状況は難易度ごとに独立保存）</div>
       <div class="warp-list">${diffButtons}</div>
+      ${this.rta && this.rta.active ? `<div class="modal-section-title">RTA計測中</div>
+      <div class="info-box">経過 <b style="color:#ffe6ad;font-variant-numeric:tabular-nums">${this.formatRTA(this.rta.time)}</b>
+        （${this.rta.finished ? 'ゴール済み' : 'ポーズ中は停止'}）　／　ただし難易度変更・タイトル復帰で計測は終了します。</div>` : ''}
       <div class="modal-footer">
         <button class="gothic-btn" data-action="resume">再開</button>
         <button class="gothic-btn secondary" data-action="map">マップ</button>
@@ -11776,6 +12118,10 @@ window.addEventListener('load', () => {
   game.renderTitle();
   const startBtn = document.getElementById('start-btn');
   if (startBtn) startBtn.addEventListener('click', () => game.startGame(game.selectedDiff));
+  const rtaBtn = document.getElementById('rta-btn');
+  if (rtaBtn) {
+    rtaBtn.addEventListener('click', () => { game.openRTASelect(); });
+  }
   const abyssBtn = document.getElementById('abyss-btn');
   if (abyssBtn) {
     abyssBtn.addEventListener('click', () => {
@@ -11834,6 +12180,8 @@ window.addEventListener('load', () => {
               ・ハート形の<b>ハートコンテナ</b>で最大HP+20、<b>プリズム</b>で最大MP+15。<br>
               ・崩落壁の中には<b>隠し財宝</b>（全72）。寄り道部屋「焼け落ちた鐘楼」「沈黙の納骨堂」<br>
               　「蝋燭の礼拝堂」「血の水路」「止まった大時計」には新しいレリックが眠る。<br>
+              ・<b>RTA計測</b>：タイトルの「RTA計測」→ 難易度を選ぶと、全200ステージを1本のタイマーで計測。<br>
+              　計測中はセーブ／続きからを使わず、進行状況にも影響しません（ポーズ中は時計停止）。<br>
               ・本編20ステージの先に<b>深淵編180ステージ</b>（12章×15）。各章の最後は守護者の間。<br>
               　タイトル／ポーズの「深淵編」からいつでも入れて、進み具合は章ごとに保存されます。<br>
             </div>
@@ -11849,5 +12197,5 @@ window.addEventListener('load', () => {
 });
 
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5f80235af387b7d',t:'MTc5NTUxOTA2MQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5f80235af387b7d',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
