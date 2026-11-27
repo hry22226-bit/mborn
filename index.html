@@ -522,8 +522,8 @@ html, body {
 }
 
 #minimap-canvas {
-  width: 132px;
-  height: 76px;
+  width: 152px;
+  height: 87px;
   opacity: 0.82;
   border: 1px solid rgba(214, 177, 126, 0.45);
   background: rgba(8, 6, 14, 0.76);
@@ -655,6 +655,8 @@ html, body {
   display: none !important;
 }
 
+.modal-panel > * { flex-shrink: 0; }
+
 .modal-panel {
   width: min(860px, 95vw);
   max-height: 90vh;
@@ -709,6 +711,7 @@ html, body {
   max-height: 46vh;
   overflow-y: auto;
   padding-right: 4px;
+  flex-shrink: 0;   /* モーダルが縦に詰まってもボタンが潰れないようにする */
 }
 
 .mini-btn {
@@ -829,7 +832,7 @@ html, body {
   /* HUD gets out of the way on small screens */
   .hud-top-left { min-width: 0; transform: scale(0.86); transform-origin: top left; }
   .hud-top-right { transform: scale(0.78); transform-origin: top right; }
-  #minimap-canvas { width: 92px; height: 53px; }
+  #minimap-canvas { width: 104px; height: 60px; }
   .room-label { max-width: 96px; font-size: 9px !important; }
   #boss-hud { width: min(420px, 84vw); bottom: 8px; }
   .equip-strip { flex-wrap: wrap; gap: 4px; max-width: 62vw; }
@@ -1136,7 +1139,7 @@ html, body {
         <button id="map-btn" class="hud-icon-btn">マップ M</button>
         <button id="pause-btn" class="hud-icon-btn">ポーズ Esc</button>
       </div>
-      <canvas id="minimap-canvas" width="196" height="112"></canvas>
+      <canvas id="minimap-canvas" width="224" height="128"></canvas>
       <div id="room-label" class="room-label">ACT I — 燃え盛るパリ市街</div>
     </div>
   </div>
@@ -3603,6 +3606,337 @@ HIDDEN_TOTAL = ROOMS.reduce((a, r) => a + (r.collectibles || []).length
 const TOTAL_STAGES = ROOMS.length;
 
 
+// ===== worldmap.js =====
+// =========================================================================
+// WORLD MAP — 部屋配置（scripts/gen_worldmap.js が生成。手で編集しない）
+//   seed 20261116: 12列×24行の城内を、行き止まりの無い一本道で200面ぶん蛇行。
+//   mapDir は出入口の向き（隣の部屋の位置と必ず一致する）。
+// =========================================================================
+const ROOM_LAYOUT = {"0":{"x":0,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":false}},"1":{"x":0,"y":21,"dir":"lrud","open":{"left":false,"right":true,"up":false,"down":true}},"2":{"x":1,"y":21,"dir":"lrud","open":{"left":true,"right":false,"up":true,"down":false}},"3":{"x":1,"y":20,"dir":"lrud","open":{"left":false,"right":true,"up":false,"down":true}},"4":{"x":2,"y":20,"dir":"lrud","open":{"left":true,"right":false,"up":false,"down":true}},"5":{"x":2,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"6":{"x":2,"y":22,"dir":"lrud","open":{"left":false,"right":true,"up":true,"down":false}},"7":{"x":3,"y":22,"dir":"lrud","open":{"left":true,"right":false,"up":true,"down":false}},"8":{"x":3,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"9":{"x":3,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"10":{"x":3,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"11":{"x":3,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"12":{"x":3,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"13":{"x":3,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"14":{"x":3,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"15":{"x":3,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"16":{"x":3,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"17":{"x":3,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"18":{"x":3,"y":11,"dir":"lrud","open":{"left":false,"right":true,"up":false,"down":true}},"19":{"x":4,"y":11,"dir":"lrud","open":{"left":true,"right":false,"up":false,"down":true}},"20":{"x":4,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"21":{"x":4,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"22":{"x":4,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"23":{"x":4,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"24":{"x":4,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"25":{"x":4,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"26":{"x":4,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"27":{"x":4,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"28":{"x":4,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"29":{"x":4,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"30":{"x":4,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"31":{"x":4,"y":23,"dir":"lrud","open":{"left":false,"right":true,"up":true,"down":false}},"32":{"x":5,"y":23,"dir":"lrud","open":{"left":true,"right":false,"up":true,"down":false}},"33":{"x":5,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"34":{"x":5,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"35":{"x":5,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"36":{"x":5,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"37":{"x":5,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"38":{"x":5,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"39":{"x":5,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"40":{"x":5,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"41":{"x":5,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"42":{"x":5,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"43":{"x":5,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"44":{"x":5,"y":11,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"45":{"x":5,"y":10,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"46":{"x":5,"y":9,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"47":{"x":5,"y":8,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"48":{"x":5,"y":7,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"49":{"x":5,"y":6,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"50":{"x":5,"y":5,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"51":{"x":5,"y":4,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"52":{"x":5,"y":3,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"53":{"x":5,"y":2,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"54":{"x":5,"y":1,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"55":{"x":5,"y":0,"dir":"lrud","open":{"left":false,"right":true,"up":false,"down":true}},"56":{"x":6,"y":0,"dir":"lrud","open":{"left":true,"right":false,"up":false,"down":true}},"57":{"x":6,"y":1,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"58":{"x":6,"y":2,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"59":{"x":6,"y":3,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"60":{"x":6,"y":4,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"61":{"x":6,"y":5,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"62":{"x":6,"y":6,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"63":{"x":6,"y":7,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"64":{"x":6,"y":8,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"65":{"x":6,"y":9,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"66":{"x":6,"y":10,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"67":{"x":6,"y":11,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"68":{"x":6,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"69":{"x":6,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"70":{"x":6,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"71":{"x":6,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"72":{"x":6,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"73":{"x":6,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"74":{"x":6,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"75":{"x":6,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"76":{"x":6,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"77":{"x":6,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"78":{"x":6,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"79":{"x":6,"y":23,"dir":"lrud","open":{"left":false,"right":true,"up":true,"down":false}},"80":{"x":7,"y":23,"dir":"lrud","open":{"left":true,"right":false,"up":true,"down":false}},"81":{"x":7,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"82":{"x":7,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"83":{"x":7,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"84":{"x":7,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"85":{"x":7,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"86":{"x":7,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"87":{"x":7,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"88":{"x":7,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"89":{"x":7,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"90":{"x":7,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"91":{"x":7,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"92":{"x":7,"y":11,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"93":{"x":7,"y":10,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"94":{"x":7,"y":9,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"95":{"x":7,"y":8,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"96":{"x":7,"y":7,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"97":{"x":7,"y":6,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"98":{"x":7,"y":5,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"99":{"x":7,"y":4,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"100":{"x":7,"y":3,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"101":{"x":7,"y":2,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"102":{"x":7,"y":1,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"103":{"x":7,"y":0,"dir":"lrud","open":{"left":false,"right":true,"up":false,"down":true}},"104":{"x":8,"y":0,"dir":"lrud","open":{"left":true,"right":false,"up":false,"down":true}},"105":{"x":8,"y":1,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"106":{"x":8,"y":2,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"107":{"x":8,"y":3,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"108":{"x":8,"y":4,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"109":{"x":8,"y":5,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"110":{"x":8,"y":6,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"111":{"x":8,"y":7,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"112":{"x":8,"y":8,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"113":{"x":8,"y":9,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"114":{"x":8,"y":10,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"115":{"x":8,"y":11,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"116":{"x":8,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"117":{"x":8,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"118":{"x":8,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"119":{"x":8,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"120":{"x":8,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"121":{"x":8,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"122":{"x":8,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"123":{"x":8,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"124":{"x":8,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"125":{"x":8,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"126":{"x":8,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"127":{"x":8,"y":23,"dir":"lrud","open":{"left":false,"right":true,"up":true,"down":false}},"128":{"x":9,"y":23,"dir":"lrud","open":{"left":true,"right":false,"up":true,"down":false}},"129":{"x":9,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"130":{"x":9,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"131":{"x":9,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"132":{"x":9,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"133":{"x":9,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"134":{"x":9,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"135":{"x":9,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"136":{"x":9,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"137":{"x":9,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"138":{"x":9,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"139":{"x":9,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"140":{"x":9,"y":11,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"141":{"x":9,"y":10,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"142":{"x":9,"y":9,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"143":{"x":9,"y":8,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"144":{"x":9,"y":7,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"145":{"x":9,"y":6,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"146":{"x":9,"y":5,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"147":{"x":9,"y":4,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"148":{"x":9,"y":3,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"149":{"x":9,"y":2,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"150":{"x":9,"y":1,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"151":{"x":9,"y":0,"dir":"lrud","open":{"left":false,"right":true,"up":false,"down":true}},"152":{"x":10,"y":0,"dir":"lrud","open":{"left":true,"right":false,"up":false,"down":true}},"153":{"x":10,"y":1,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"154":{"x":10,"y":2,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"155":{"x":10,"y":3,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"156":{"x":10,"y":4,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"157":{"x":10,"y":5,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"158":{"x":10,"y":6,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"159":{"x":10,"y":7,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"160":{"x":10,"y":8,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"161":{"x":10,"y":9,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"162":{"x":10,"y":10,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"163":{"x":10,"y":11,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"164":{"x":10,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"165":{"x":10,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"166":{"x":10,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"167":{"x":10,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"168":{"x":10,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"169":{"x":10,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"170":{"x":10,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"171":{"x":10,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"172":{"x":10,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"173":{"x":10,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"174":{"x":10,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"175":{"x":10,"y":23,"dir":"lrud","open":{"left":false,"right":true,"up":true,"down":false}},"176":{"x":11,"y":23,"dir":"lrud","open":{"left":true,"right":false,"up":true,"down":false}},"177":{"x":11,"y":22,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"178":{"x":11,"y":21,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"179":{"x":11,"y":20,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"180":{"x":11,"y":19,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"181":{"x":11,"y":18,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"182":{"x":11,"y":17,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"183":{"x":11,"y":16,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"184":{"x":11,"y":15,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"185":{"x":11,"y":14,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"186":{"x":11,"y":13,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"187":{"x":11,"y":12,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"188":{"x":11,"y":11,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"189":{"x":11,"y":10,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"190":{"x":11,"y":9,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"191":{"x":11,"y":8,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"192":{"x":11,"y":7,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"193":{"x":11,"y":6,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"194":{"x":11,"y":5,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"195":{"x":11,"y":4,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"196":{"x":11,"y":3,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"197":{"x":11,"y":2,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"198":{"x":11,"y":1,"dir":"ud","open":{"left":false,"right":false,"up":true,"down":true}},"199":{"x":11,"y":0,"dir":"ud","open":{"left":false,"right":false,"up":false,"down":true}}};
+
+ROOMS.forEach((r, i) => {
+  const L = ROOM_LAYOUT[i];
+  if (!L) return;
+  r.mapX = L.x;
+  r.mapY = L.y;
+  r.mapDir = L.dir;
+  r.mapOpen = L.open;
+  if (!r.h) r.h = 720;          // 深淵の部屋は h 未指定：奈落判定などが壊れないように
+});
+
+// =========================================================================
+// 縦穴（上下の出入口）を自動で掘る
+//
+//   mapY は画面の行（小さいほど上）。
+//   ・すぐ次の部屋が真上 → 天井へ抜ける「煙突」を掘り、中に梯子（一方通行の足場）
+//   ・すぐ次の部屋が真下 → 床に穴を開ける（落ちると階下へ）
+//   どちらでもない部屋は天井も床も塞がったまま。
+//
+//   煙突の位置は「マップの列」だけで決まるので、縦に繋がった部屋どうしで
+//   同じ x に穴が並び、地図と実際の地形が一致する。
+//   煙突の中の地形はくり抜く（収集品・隠し壁・アンカーは動かす）ので、
+//   手作りの面でも必ず天井まで登れる。
+// =========================================================================
+const VDOOR_HALF = 64;      // 煙突の半幅（描画・判定と共通）
+const VDOOR_STEP = 48;      // 梯子の段間隔（ジャンプの最高到達点125pxに余裕を持たせる）
+const VDOOR_RUN = 100;      // 梯子の踏み面
+
+function _shaftFrac(mapX) {
+  // マップ列ごとに煙突の位置をずらす（0.36 / 0.5 / 0.64）
+  return 0.5 + 0.14 * (((mapX % 3) + 3) % 3 - 1);
+}
+
+// x 範囲 [x0,x1] にかかる地形をくり抜く（細い障害物は消し、広い床は左右に割る）
+function _carveBand(room, x0, x1, yTop, yBottom) {
+  const out = [];
+  for (const s of room.solids) {
+    const overlapX = s.x < x1 && s.x + s.w > x0;
+    const overlapY = s.y < yBottom && s.y + s.h > yTop;
+    if (!overlapX || !overlapY) { out.push(s); continue; }
+    // 左右の残りを残す
+    const leftW = Math.min(s.w, x0 - s.x);
+    const rightX = Math.max(s.x, x1);
+    const rightW = s.x + s.w - rightX;
+    if (leftW >= 20) out.push({ ...s, w: leftW });
+    if (rightW >= 20) out.push({ ...s, x: rightX, w: rightW });
+  }
+  room.solids = out;
+  // 一方通行の足場も煙突の中は消す
+  room.oneWays = (room.oneWays || []).filter((o) => !(o.x < x1 && o.x + o.w > x0 && o.y > yTop && o.y < yBottom));
+}
+
+function buildVerticalShafts() {
+  ROOMS.forEach((room, i) => {
+    const prev = ROOMS[i - 1];
+    const next = ROOMS[i + 1];
+    const sameCol = (r) => r && r.mapX === room.mapX;
+    const upR = [prev, next].find((r) => sameCol(r) && r.mapY < room.mapY);
+    const downR = [prev, next].find((r) => sameCol(r) && r.mapY > room.mapY);
+    // ボス部屋（=守護者の間）は闘技場の地形を削らない。縦の繋がりが来た場合は
+    // 左右の扉を使う非常口にまわす（game 側にフォールバックあり）。
+    const arena = !!room.isBossRoom;
+    const cx = Math.round(room.w * _shaftFrac(room.mapX));
+    room.vdoorSpan = { x0: cx - VDOOR_HALF, x1: cx + VDOOR_HALF };
+    // 隠し壁（壊せる壁）が縦穴の柱にかかると頭を打つので、柱の外へずらす
+    if (upR || downR) {
+      for (const b of room.breakables || []) {
+        if (b.x < cx + VDOOR_HALF + 10 && b.x + b.w > cx - VDOOR_HALF - 10) {
+          b.x = b.x + b.w / 2 >= cx ? cx + VDOOR_HALF + 26 : cx - VDOOR_HALF - 26 - b.w;
+        }
+      }
+    }
+    room.vdoorUp = upR ? ROOMS.indexOf(upR) : null;
+    room.vdoorDown = downR ? ROOMS.indexOf(downR) : null;
+
+    if (upR && !arena) {
+      // --- 煙突を掘る（天井の板は残す：判定は game 側のトリガーで抜ける） ---
+      const yTop = 120, yBottom = 560;
+      _carveBand(room, cx - VDOOR_HALF, cx + VDOOR_HALF, yTop, yBottom);
+      // --- 梯子：床から天井近くまで、ジャンプ1回で届く段を積む ---
+      const floorY = (() => {
+        let best = 600;
+        for (const s of room.solids) {
+          if (s.y < yBottom || s.y > 720) continue;
+          if (s.x < cx + VDOOR_HALF && s.x + s.w > cx - VDOOR_HALF) best = Math.min(best, s.y);
+        }
+        return best;
+      })();
+      let y = floorY - 70;
+      let placed = 0;
+      while (y > 150 && placed < 16) {
+        room.solids.push({ x: cx - Math.round(VDOOR_RUN / 2), y, w: VDOOR_RUN, h: 14, ladder: true });
+        y -= VDOOR_STEP;
+        placed++;
+      }
+      room.vdoorSteps = placed;
+    }
+
+    if (downR && !arena) {
+      // --- 床の穴：煙突の真下の床を割る（幅が足りない部屋は穴を狭める） ---
+      for (const half of [VDOOR_HALF, 52, 40]) {
+        const cands = room.solids.filter((s) => {
+          if (s.w < half * 2 + 70 || s.h < 12) return false;
+          if (s.y < 400 || s.y > 710) return false;
+          return cx > s.x + half + 30 && cx < s.x + s.w - half - 30;
+        }).sort((a, b) => a.y - b.y);   // プレイヤーが実際に歩いている一番上の床
+        const s = cands[0];
+        if (!s) continue;
+        const rightX = cx + half;
+        const rightW = s.x + s.w - rightX;
+        const leftW = cx - half - s.x;
+        if (leftW > 6 && rightW > 6) {
+          s.w = leftW;
+          room.solids.push({ x: rightX, y: s.y, w: rightW, h: s.h });
+          room.vdoorSpan = { x0: cx - half, x1: cx + half };
+          room.floorHole = { x0: cx - half, x1: cx + half, y: s.y };
+          // 穴の柱は天井から床下まで完全にくり抜く
+          _carveBand(room, cx - half, cx + half, 120, 760);
+          break;
+        }
+      }
+      if (!room.floorHole) room.vdoorDown = null;   // 穴が掘れない部屋は左右の扉で繋ぐ
+    }
+  });
+
+  // くり抜きの結果、隠し壁（壊せる壁）が宙に浮いた場合は、
+  // 新しい足場を足さず（縦穴を塞ぐ原因になる）、壁の方を既存の床の上へ降ろす。
+  ROOMS.forEach((room) => {
+    for (const b of room.breakables || []) {
+      const supported = room.solids.some((s) =>
+        Math.abs(s.y - (b.y + b.h)) <= 10 && s.x < b.x + b.w + 6 && s.x + s.w > b.x - 6);
+      if (supported) continue;
+      // 壁の真下（またはすぐ上）で、x が重なる一番近い床を探す
+      const cands = room.solids
+        .filter((s) => s.h >= 12 && !s.ladder && s.x < b.x + b.w && s.x + s.w > b.x)
+        .filter((s) => s.y >= b.y + b.h - 300 && s.y <= b.y + b.h + 240)
+        .sort((a, q) => Math.abs(a.y - (b.y + b.h)) - Math.abs(q.y - (b.y + b.h)));
+      const p = cands[0];
+      if (!p) continue;
+      b.y = Math.round(p.y - b.h);
+      // 壁の左右どちらかに、立てる余白（50px 以上）が残るように x を寄せる
+      const slackL = b.x - p.x;
+      const slackR = (p.x + p.w) - (b.x + b.w);
+      if (Math.max(slackL, slackR) < 50) {
+        const wantR = p.x + p.w >= b.x + b.w;
+        const nx = wantR ? Math.min(b.x, p.x + p.w - 50 - b.w) : Math.max(b.x, p.x + 50);
+        // 縦穴の柱には置かない
+        const sp = room.vdoorSpan;
+        const inShaft = sp && room.vdoorUp != null &&
+          nx < sp.x1 + 20 && nx + b.w > sp.x0 - 20;
+        if (!inShaft && nx >= p.x && nx + b.w <= p.x + p.w) b.x = Math.round(nx);
+      }
+    }
+  });
+}
+buildVerticalShafts();
+
+// =========================================================================
+// OPEN WORLD — 地図座標ベースの接続グラフ
+//   200面は「部屋番号の一本道」ではなく、mapX/mapY の格子として繋がっている。
+//   WORLD_GRAPH["x,y"].{up,down,left,right} = 部屋番号（境界が実在する場合のみ）
+//   上下に繋がる部屋どうしは、両方に縦穴（煙突＋梯子／床の穴）を掘る。
+//   ＝ 地図上で隣なら、番号が離れていても階段で行き来できる（＝ショートカット）。
+// =========================================================================
+const WORLD_GRAPH = {};
+
+(function buildOpenWorld() {
+  const at = {};
+  ROOMS.forEach((r, i) => { at[r.mapX + ',' + r.mapY] = i; });
+  const isBoss = (i) => !!(ROOMS[i] && ROOMS[i].isBossRoom);
+
+  ROOMS.forEach((r, i) => {
+    const k = r.mapX + ',' + r.mapY;
+    WORLD_GRAPH[k] = { up: null, down: null, left: null, right: null, id: i };
+    // 横：列が1つ隣
+    const L = at[(r.mapX - 1) + ',' + r.mapY];
+    const R = at[(r.mapX + 1) + ',' + r.mapY];
+    if (L != null) WORLD_GRAPH[k].left = L;
+    if (R != null) WORLD_GRAPH[k].right = R;
+    // 縦：同じ列の1つ上／下
+    const U = at[r.mapX + ',' + (r.mapY - 1)];
+    const D = at[r.mapX + ',' + (r.mapY + 1)];
+    if (U != null) WORLD_GRAPH[k].up = U;
+    if (D != null) WORLD_GRAPH[k].down = D;
+  });
+
+  // ---- 縦穴を「繋がっている全ての組」に対して掘る ----
+  const floorAt = (room, cx, half) => {
+    let best = 600;
+    for (const s of room.solids) {
+      if (s.ladder || s.h < 12) continue;
+      if (s.y < 400 || s.y > 715) continue;
+      if (s.x < cx + half && s.x + s.w > cx - half) best = Math.min(best, s.y);
+    }
+    return best;
+  };
+  const carveUp = (room) => {
+    const cx = Math.round(room.w * _shaftFrac(room.mapX));
+    _carveBand(room, cx - VDOOR_HALF, cx + VDOOR_HALF, 120, 560);
+    room.vdoorSpan = { x0: cx - VDOOR_HALF, x1: cx + VDOOR_HALF };
+    room.vdoorUp = (WORLD_GRAPH[room.mapX + ',' + room.mapY] || {}).up;
+    room._owUp = true;
+  };
+  // 罠の真上を避ける：穴の判定は「穴に掛かる罠がないこと」が条件なので、
+  // 掘った後に棘が被ると踏み抜けも落ちも効かなくなる。
+  const trapFree = (room, cx, half, y) => (room.traps || []).every((t) => {
+    if (t.type === 'saw' || t.type === 'pendulum' || t.type === 'chandelier') return true;
+    const tx = Math.min(t.x || 0, t.x0 != null ? t.x0 : Infinity, t.x1 != null ? t.x1 : Infinity);
+    const tx2 = Math.max((t.x || 0) + (t.w || 0), t.x1 != null ? t.x1 : -Infinity, t.x0 != null ? t.x0 : -Infinity);
+    if (!(tx < cx + half + 8 && tx2 > cx - half - 8)) return true;
+    return Math.abs((t.y || 600) - y) > 110;
+  });
+  const carveDown = (room) => {
+    let cx = Math.round(room.w * _shaftFrac(room.mapX));
+    room.vdoorSpan = { x0: cx - VDOOR_HALF, x1: cx + VDOOR_HALF };
+    for (const half of [VDOOR_HALF, 52, 40]) {
+      // 柱の位置が床からはみ出す部屋は、柱の中心を床の内側へ寄せる
+      const cands = room.solids.filter((s) => {
+        if (s.ladder || s.w < half * 2 + 70 || s.h < 12) return false;
+        if (s.y < 400 || s.y > 710) return false;
+        return s.w > half * 2 + 12;
+      }).sort((a, b) => a.y - b.y);
+      // 部屋の入口（左端寄り）から歩いて行ける床を優先：中央に近い床を選ぶ
+      cands.sort((a, b) => Math.abs((a.x + a.w / 2) - room.w * 0.35) - Math.abs((b.x + b.w / 2) - room.w * 0.35));
+      const s = cands[0];
+      if (s) {
+        const lo = s.x + half + 6, hi = s.x + s.w - half - 6;
+        if (cx < lo) cx = lo; else if (cx > hi) cx = hi;
+        cx = Math.round(cx);
+      }
+      if (!s) continue;
+      const rightX = cx + half, rightW = s.x + s.w - rightX, leftW = cx - half - s.x;
+      if (leftW > 6 && rightW > 6) {
+        // 床は「毎回コピー」してから割る（元データを壊さず、穴の中に足場を残さない）
+        room.solids = room.solids.filter((q) => q !== s);
+        room.solids.push({ ...s, w: leftW });
+        room.solids.push({ ...s, x: rightX, w: rightW });
+        // 穴の中に残った細い足場は消す（落ちきれずに跨がるのを防ぐ）
+        room.solids = room.solids.filter((q) =>
+          !(q.x < cx + half && q.x + q.w > cx - half && q.y > s.y - 6));
+        // 柱の真上に伸びる塊は「壁」ではなく柱として空ける（左右から回り込めない部屋対策）
+        //  ※ 複数の床スラブが重なる部屋では、上に別の床（穴の外まで続く板）は残す
+        const solidAt = room.solids.slice();
+        room.solids = solidAt.filter((q) => {
+          if (q.ladder || !(q.x < cx + half && q.x + q.w > cx - half) || q.y >= s.y - 6) return true;
+          // 穴の左右に張り出している＝フロア。残す（消すと階下判定が壊れる）
+          if (q.x < cx - half - 30 || q.x + q.w > cx + half + 30) return true;
+          return false;
+        });
+        room.vdoorSpan = { x0: cx - half, x1: cx + half };
+        room.floorHole = { x0: cx - half, x1: cx + half, y: s.y };
+        _carveBand(room, cx - half, cx + half, 120, 760);
+        room.vdoorDown = (WORLD_GRAPH[room.mapX + ',' + room.mapY] || {}).down;
+        room.holeClean = true;
+        return;
+      }
+    }
+    room.vdoorDown = null;
+  };
+
+  // 上下の接続ペアを列挙（重複なし）
+  // 旧・一本道の縦穴（buildVerticalShafts）はオープンワールドの繋がりに合わせて
+  // 作り直す。旧データは座標がずれて柱の真上に壁が残るため、いったん撤去する。
+  ROOMS.forEach((room) => {
+    room.solids = room.solids.filter((q) => !q.ladder);
+    room.floorHole = null;
+    room.holeClean = false;
+    room.vdoorDown = null;
+  });
+
+  const pairs = [];
+  ROOMS.forEach((r, i) => {
+    const g = WORLD_GRAPH[r.mapX + ',' + r.mapY];
+    if (g.up != null && g.up > i) pairs.push([i, g.up]);
+  });
+  // 梯子は「くり抜きが全部終わってから」積む（床の穴を掘る帯が梯子を消さないように）
+  const ladderPass = () => {
+    ROOMS.forEach((room) => {
+      if (!room._owUp) return;
+      const cx = Math.round(room.w * _shaftFrac(room.mapX));
+      const floorY = floorAt(room, cx, VDOOR_HALF);
+      let y = floorY - 70, placed = 0;
+      while (y > 150 && placed < 16) {
+        room.solids.push({ x: cx - Math.round(VDOOR_RUN / 2), y, w: VDOOR_RUN, h: 14, ladder: true });
+        y -= VDOOR_STEP; placed++;
+      }
+      room.vdoorSteps = (room.vdoorSteps || 0) + placed;
+    });
+  };
+
+  for (const [a, b] of pairs) {
+    // ボス部屋（闘技場）は地形を削らない：上下の繋がりは左右の扉で迂回させる
+    if (!isBoss(a) && !isBoss(b)) {
+      // a = 下の部屋 / b = 上の部屋
+      //   下の部屋：天井まで登る縦穴（煙突＋梯子）
+      //   上の部屋：床の穴（落ちると下の部屋へ）
+      carveUp(ROOMS[a]);
+      carveDown(ROOMS[b]);
+    } else {
+      // 片方が闘技場：繋がりをグラフから外し、番号の前後を非常口に使う
+      const ka = ROOMS[a].mapX + ',' + ROOMS[a].mapY;
+      const kb = ROOMS[b].mapX + ',' + ROOMS[b].mapY;
+      if (isBoss(a)) { WORLD_GRAPH[ka].up = null; if (WORLD_GRAPH[kb]) WORLD_GRAPH[kb].down = null; }
+      else { WORLD_GRAPH[kb].down = null; if (WORLD_GRAPH[ka]) WORLD_GRAPH[ka].up = null; }
+    }
+  }
+  // 穴の真上に掛かる罠（棘など）は撤去する：穴の判定と地形を食い違わせない
+  ROOMS.forEach((room) => {
+    const h = room.floorHole;
+    if (!h || !room.holeClean) return;
+    room.traps = (room.traps || []).filter((t) => {
+      if (t.type === 'saw' || t.type === 'pendulum' || t.type === 'chandelier') return true;
+      if (t.type === 'medusaSpawner') return true;
+      const tx = t.x != null ? t.x : (t.x0 != null ? t.x0 : 1e9);
+      const tx2 = t.x != null ? t.x + (t.w || 0) : (t.x1 != null ? t.x1 : -1e9);
+      if (!(tx < h.x1 + 8 && tx2 > h.x0 - 8)) return true;
+      return Math.abs((t.y || 600) - h.y) > 110;
+    });
+  });
+
+  ladderPass();
+})();
+
+
 // ===== entities.js =====
 // Player (Rose Belmont), Enemies, Traps, Projectiles, Pickups & Particles
 
@@ -3650,16 +3984,25 @@ class Player {
     this.onGround = false;
     this.onOneWay = false;
     this.dropThroughTimer = 0;
+    this.holeDropTimer = 0;
+    this.onShaftStep = false;
     this.coyoteTimer = 0;
     this.jumpBufferTimer = 0;
     this.airJumpsLeft = d.extraAirJumps;
 
     this.wallDir = 0; // -1 touching left wall, +1 touching right wall
     this.wallJumpLock = 0;
+    this.floorDashTimer = 0;      // 床抜けダッシュ（落下中にスライドで床を抜ける）
+    this.floorDashWindow = 0;     // しゃがみ＋ジャンプ直後の受付窓
+    this.floorDashSlab = null;    // このダッシュで抜ける床（1枚だけ）
+    this.slideJumpTimer = 0;      // スライディングジャンプの慣性保持
+    this.slideJumpSpeed = 0;
+    this.slideJumpDir = 1;
     this.wallTouchGrace = 0;
 
     // Slide / Backdash
     this.crouching = false;
+    this.crouchWalk = false;
     this.slideTimer = 0;
     this.slideDir = 0;
     this.isBackdash = false;
@@ -3739,9 +4082,38 @@ class Player {
     const rw = this.w - 4;
     const rh = PLAYER_H - 2;
     for (const s of this.game.activeSolids()) {
+      if (s.ladder) continue;   // 梯子の段は踏み抜けられる（立ち判定に含めない）
       if (rectOverlap(rx, ry, rw, rh, s.x, s.y, s.w, s.h)) return false;
     }
     return true;
+  }
+
+  // しゃがみ／スライドの高さでその場所に入れるか（低い通路かどうかの判定）
+  fitsSlideAt(x, footY) {
+    const rx = x - this.w / 2 + 1;
+    const ry = footY - PLAYER_SLIDE_H - 2;
+    const rw = this.w - 2;
+    const rh = PLAYER_SLIDE_H + 1;
+    for (const s of this.game.activeSolids()) {
+      if (s.ladder) continue;
+      if (rectOverlap(rx, ry, rw, rh, s.x, s.y, s.w, s.h)) return false;
+    }
+    return true;
+  }
+
+  // 頭上が「天井」で塞がれているか（ただの足場の段差と区別する）
+  ceilingAheadAt(x, footY) {
+    const rx = x - this.w / 2 + 2;
+    const rw = this.w - 4;
+    const bandTop = footY - PLAYER_H;
+    const bandH = PLAYER_H - PLAYER_SLIDE_H - 2;
+    for (const s of this.game.activeSolids()) {
+      if (s.ladder) continue;
+      if (!rectOverlap(rx, bandTop, rw, bandH, s.x, s.y, s.w, s.h)) continue;
+      // 足元より十分上まで伸びている塊＝天井とみなす
+      if (s.y < footY - PLAYER_SLIDE_H - 6) return true;
+    }
+    return false;
   }
 
   // True when only the legs are blocked — i.e. we must crawl/slide.
@@ -4154,6 +4526,11 @@ class Player {
 
   die(reason) {
     if (this.dead) return;
+    // 床抜けダッシュで階下へ落ちた場合の救済：
+    // 抜けた先が行き止まりなら、部屋の入口へ戻す（進行不能にしない）
+    if (this.floorDashTimer > 0 && reason === '奈落落下' && this.game.floorDashRescue) {
+      if (this.game.floorDashRescue()) return;
+    }
     this.dead = true;
     this.hp = 0;
     this.game.onPlayerDeath(reason);
@@ -4471,7 +4848,10 @@ class Player {
     if (this.arcanaCooldown > 0) this.arcanaCooldown -= dt;
     if (this.grappleCooldown > 0) this.grappleCooldown -= dt;
     if (this.dropThroughTimer > 0) this.dropThroughTimer -= dt;
+    if (this.holeDropTimer > 0) this.holeDropTimer -= dt;
     if (this.wallJumpLock > 0) this.wallJumpLock -= dt;
+    if (this.floorDashTimer > 0) this.floorDashTimer -= dt;
+    if (this.floorDashWindow > 0) this.floorDashWindow -= dt;
     if (this.comboTimer > 0) {
       this.comboTimer -= dt;
       if (this.comboTimer <= 0) this.comboCount = 0;
@@ -4505,8 +4885,35 @@ class Player {
 
     // Input buffering for jump
     if (input.jumpPressed) {
-      // Down + Jump on one-way platform drops through!
-      if (input.down && this.onGround && this.onOneWay) {
+      // 床の穴の真上で しゃがみ＋ジャンプ → 足場ごと穴へ落ちる
+      const fh = this.game.room && this.game.room.floorHole;
+      // 穴の中にいるか（ジャンプ中でも落とせるように常に判定）
+      const overHole = !!(fh && this.x > fh.x0 - 8 && this.x < fh.x1 + 8 && this.y > fh.y - 240);
+      // 床抜けダッシュの窓：しゃがみ＋ジャンプの直後 0.35 秒だけ受け付ける
+      if (input.down && this.onGround && !(this.game.boss && !this.game.boss.dead)) {
+        this.floorDashWindow = 0.35;
+        this.floorDashSlab = null;
+        for (const s2 of this.game.activeSolids()) {
+          if (s2.ladder || s2.h < 8) continue;
+          if (s2.y < this.y - 10 || s2.y > this.y + 24) continue;
+          if (this.x + this.w / 2 - 2 <= s2.x || this.x - this.w / 2 + 2 >= s2.x + s2.w) continue;
+          if (!this.floorDashSlab || s2.y < this.floorDashSlab.y) this.floorDashSlab = s2;
+        }
+      }
+      if (input.down && overHole) {
+        // 床抜けダッシュの受付窓が開いている時は、途中の床で拾わずに落ちきらせる
+        if (this.floorDashWindow > 0) {
+          this.onGround = false;
+          this.y += 6;
+          this.vy = Math.max(this.vy, 200);
+        } else {
+          this.holeDropTimer = 0.42;
+          this.dropThroughTimer = 0.2;
+          this.onGround = false;
+          this.y += 6;
+          this.vy = Math.max(this.vy, 160);
+        }
+      } else if (input.down && this.onGround && (this.onOneWay || this.onShaftStep)) {
         this.dropThroughTimer = 0.22;
         this.onGround = false;
         this.onOneWay = false;
@@ -4517,6 +4924,26 @@ class Player {
       }
     } else if (this.jumpBufferTimer > 0) {
       this.jumpBufferTimer -= dt;
+    }
+
+    // 床抜けダッシュ：しゃがみ＋ジャンプの直後にスライドを入れると、
+    // 床が薄ければ 1 枚抜けて下の階へ落ちる（落下中は向きを固定）。
+    //  ※ 抜けられるのは 32px 以下の床だけ。太い床は従来どおり通れない。
+    if (input.dashPressed && this.floorDashWindow > 0 && (input.moveDir !== 0 || this.crouching)) {
+      const dir = input.moveDir !== 0 ? input.moveDir : this.facing;
+      // 記録済みの「足元の床1枚」を今回だけ抜ける対象にする
+      this.holeDropTimer = 0;
+      this.floorDashWindow = 0;
+      this.floorDashTimer = 0.6;
+      this.floorDashDir = dir;
+      this.slideDir = dir;
+      this.facing = dir;
+      this.slideTimer = 0.24;
+      this.isBackdash = false;
+      this.dropThroughTimer = 1.0;
+      this.vx = dir * 430;
+      this.game.spawnParticles(this.x, this.y - 6, '#b6e5ff', 10, 120);
+      this.game.sound.sfx('dash');
     }
 
     // Discrete action inputs
@@ -4637,19 +5064,40 @@ class Player {
     }
 
     // --- HORIZONTAL & CROUCH / SLIDE MOVEMENT ---
-    // If only the legs are blocked we must crawl; if a huge block sits on our
-    // head we are not "stuck" (collision resolution already pushed us out).
-    const lowBlocked = this.lowBlockedAt(this.x, this.y);
-    const stuckLow = lowBlocked && !this.canStandAt(this.x, this.y);
+    // 天井が低くて「立ちでは入れない／立てない」状態。
+    // しゃがめば入れる低い通路と、そもそも入れない壁を区別する。
+    const standBlocked = !this.canStandAt(this.x, this.y);
+    const slideFitsHere = this.fitsSlideAt(this.x, this.y);
+    const stuckLow = standBlocked && slideFitsHere;
     if (this.slideTimer > 0) {
       this.slideTimer -= dt;
-      this.vx = this.slideDir * (this.isBackdash ? 455 : 495);
+      // しゃがんでも通れない壁の手前ではスライドを止める
+      const slideBlocked = !this.fitsSlideAt(this.x + this.slideDir * (this.w / 2 + 8), this.y);
+      this.vx = slideBlocked ? 0 : this.slideDir * (this.isBackdash ? 455 : 495);
+      if (slideBlocked) this.slideTimer = 0;
       if (this.slideTimer <= 0 && !this.canStandAt(this.x, this.y)) {
         this.crouching = true;
       }
+    } else if (this.hurtStun <= 0 && this.slideJumpTimer > 0 && !this.onGround) {
+      // スライディングジャンプの慣性：空中では減速しながら速度を保持
+      this.slideJumpTimer -= dt;
+      this.slideJumpSpeed = Math.max(292, this.slideJumpSpeed - 1200 * dt);
+      this.vx = this.slideJumpDir * this.slideJumpSpeed;
     } else if (this.hurtStun <= 0) {
-      this.crouching = (input.down && this.onGround) || stuckLow;
       const moveDir = input.moveDir;
+      // 低い通路の手前に来たら、ぶつかる前に自動でしゃがむ。
+      // （立ち高さのまま突っ込むと天井に埋まり、下へ押し出されて床に刺さることがある）
+      // 「立ちでは入れないが、しゃがめば入れる」＝低い通路。
+      const ax = this.x + moveDir * 18;
+      // ジャンプを押している間は自動しゃがみを止める（張り出しに潜り込んで
+      // ジャンプが潰れるのを防ぐ。通りたい時は歩くだけでよい）
+      const lowAhead = moveDir !== 0 && this.onGround && !input.jumpHeld &&
+        !this.canStandAt(ax, this.y) && this.fitsSlideAt(ax, this.y) &&
+        this.ceilingAheadAt(ax, this.y);
+      // 自動しゃがみ（低い通路の手前）は「しゃがみ歩き」。
+      // ↓を押してのしゃがみは従来どおりその場で構える。
+      this.crouchWalk = lowAhead || (stuckLow && !input.down);
+      this.crouching = (input.down && this.onGround) || stuckLow || lowAhead;
       if (moveDir !== 0 && !this.atkState && this.wallJumpLock <= 0) {
         this.facing = moveDir;
       }
@@ -4659,7 +5107,16 @@ class Player {
         this.facing = crawlDir;
         this.vx = crawlDir * 215;
       } else if (this.crouching || this.parryTimer > 0) {
-        this.vx *= Math.pow(0.001, dt);
+        if (this.crouching && moveDir !== 0 && this.crouchWalk) {
+          // しゃがみ歩き：しゃがめば通れる天井なら、そのまま入って抜けられる。
+          // しゃがんでも入れない壁は従来どおり止まる。
+          this.facing = moveDir;
+          const blockAhead = !this.fitsSlideAt(this.x + moveDir * (this.w / 2 + 8), this.y);
+          this.vx = blockAhead ? 0 : moveDir * (this.canStandAt(this.x, this.y) ? 232 : 190);
+          if (blockAhead) this.vx = 0;
+        } else {
+          this.vx *= Math.pow(0.001, dt);
+        }
       } else if (this.wallJumpLock <= 0) {
         const speed = (this.atkState && this.onGround ? 115 : 292) * (this.game.hasRelic('clock_gear') ? 1.08 : 1.0);
         this.vx = moveDir * speed;
@@ -4677,7 +5134,24 @@ class Player {
     }
 
     if (this.jumpBufferTimer > 0 && !stuckLow) {
-      if (this.coyoteTimer > 0) {
+      if (this.slideTimer > 0 && this.onGround) {
+        // スライディングジャンプ：滑走の速度をそのまま持ち上げる
+        const dir = this.slideDir || this.facing;
+        this.vy = -600;
+        this.vx = dir * 640;
+        this.slideJumpTimer = 0.30;
+        this.slideJumpSpeed = 640;
+        this.slideJumpDir = dir;
+        this.facing = dir;
+        this.onGround = false;
+        this.onOneWay = false;
+        this.slideTimer = 0;
+        this.crouching = false;
+        this.coyoteTimer = 0;
+        this.jumpBufferTimer = 0;
+        this.game.sound.sfx('jump');
+        this.game.spawnParticles(this.x, this.y, '#ffe7b0', 8, 120);
+      } else if (this.coyoteTimer > 0) {
         this.vy = -615;
         this.onGround = false;
         this.onOneWay = false;
@@ -4695,6 +5169,8 @@ class Player {
         this.wallJumpLock = 0.13;
         this.wallTouchGrace = 0;
         this.jumpBufferTimer = 0;
+        // 壁ジャンプするたびに空中ジャンプが1回回復（縦坑を壁蹴りで登れる）
+        this.airJumpsLeft = Math.max(this.airJumpsLeft, 1);
         this.game.sound.sfx('jump');
         this.game.spawnParticles(this.x + this.wallDir * 13, this.centerY, '#f0dfc4', 7, 110);
       } else if (this.airJumpsLeft > 0) {
@@ -4740,6 +5216,7 @@ class Player {
     // Horizontal step
     this.x += dx;
     for (const s of solids) {
+      if (s.ladder) continue;   // 梯子の段は横移動を邪魔しない
       if (rectOverlap(this.x - hw, this.y - h + 2, this.w, h - 4, s.x, s.y, s.w, s.h)) {
         if (dx > 0) {
           this.x = s.x - hw;
@@ -4763,11 +5240,29 @@ class Player {
 
     // Vertical step
     const prevY = this.y;
-    this.y += dy;
+    let skipSolid = null;
+    // 床抜けダッシュ：落下に転じた瞬間、記録した床1枚をぶち抜いて真下へ移動する
+    if (this.dropThroughTimer > 0 && dy >= 0 && this.floorDashSlab && this.vy > 40) {
+      const sl = this.floorDashSlab;
+      if (prevY <= sl.y + 6 && this.x + hw - 2 > sl.x && this.x - hw + 2 < sl.x + sl.w) {
+        // 体（立ち高さ）ごと床の下へ抜ける
+        this.y = Math.max(prevY + dy, sl.y + sl.h + h + 2);
+        this.vy = Math.max(this.vy, 240);
+        skipSolid = sl;
+        this.dropThroughTimer = 0;
+        this.floorDashSlab = null;
+      }
+    }
+    this.y += dy * (skipSolid ? 0 : 1);
     this.onGround = false;
     this.onOneWay = false;
 
+    const fh2 = this.holeDropTimer > 0 ? (this.game.room && this.game.room.floorHole) : null;
     for (const s of solids) {
+      if (s.ladder) continue;   // 一方通行の梯子（上からのみ乗れる）: 下からのぼれる
+      // 穴へ落ちている最中は、穴の柱にかかる床を踏み抜く
+      if (fh2 && s.x < fh2.x1 + 10 && s.x + s.w > fh2.x0 - 10) continue;
+      if (s === skipSolid) continue;   // ぶち抜いた床はもう当たり判定しない
       if (!rectOverlap(this.x - hw + 1, this.y - h, this.w - 2, h, s.x, s.y, s.w, s.h)) continue;
       // Land only when we were actually above the top last frame. The old 14px
       // tolerance let a normal jump "land" on a ledge that started level with
@@ -4805,6 +5300,20 @@ class Player {
       }
     }
 
+    // 縦穴の梯子足場：乗れて、しゃがみ＋ジャンプで降りられる（上はすり抜けない）
+    //  ※ 床の穴へ落ちている最中は、同じ柱にある梯子の段で拾わない
+    this.onShaftStep = false;
+    if (this.dropThroughTimer <= 0 && this.holeDropTimer <= 0) {
+      for (const s of solids) {
+        if (!s.ladder) continue;
+        if (this.x + hw - 2 > s.x && this.x - hw + 2 < s.x + s.w) {
+          if (dy >= 0 && prevY <= s.y + 10 && this.y >= s.y - 2) {
+            this.y = s.y; this.vy = 0; this.onGround = true; this.onShaftStep = true;
+          }
+        }
+      }
+    }
+
     // One-way platforms
     if (dy >= 0 && this.dropThroughTimer <= 0) {
       for (const ow of this.game.room.oneWays || []) {
@@ -4819,8 +5328,9 @@ class Player {
       }
     }
 
-    // Pit bottom safeguard
+    // Pit bottom safeguard（床抜けダッシュ中は死亡させず入口へ戻す）
     if (this.y > this.game.room.h + 40) {
+      if (this.floorDashTimer > 0 && this.game.floorDashRescue && this.game.floorDashRescue()) return;
       this.y = this.game.room.h - 20;
       this.takeDamage(999, this.x, { isSpike: true, reason: '奈落落下' });
     }
@@ -6364,6 +6874,15 @@ class Renderer {
     for (let i = 0; i < 70; i++) {
       this.ash.push({ x: Math.random() * VIEW_W, y: Math.random() * VIEW_H, r: 0.7 + Math.random() * 1.8, v: 8 + Math.random() * 26, ph: Math.random() * 7 });
     }
+    // 2.5D（見た目だけの奥行き）。数値は描画のみで当たり判定には一切使わない。
+    this.depth = {
+      on: true,
+      strength: 1.0,     // 全体の強さ（設定画面から 0〜1.5）
+      backOffX: 150,     // 奥の面がカメラ移動に対して遅れる量
+      side: 46,          // 側面（押し出し）の太さ
+      top: 17,           // 上面の高さ
+      layers: 4,         // 背景の奥行き段数
+    };
     this.resize();
   }
 
@@ -6400,6 +6919,11 @@ class Renderer {
 
     const room = game.room;
     const theme = THEMES[room ? room.theme : 'paris'] || THEMES.paris;
+    this._curThemeName = room ? room.theme : 'paris';
+    // シームレス連結のカメラずらし（見た目のみ・物理は game.camX のまま）
+    const _camX0 = game.camX;
+    game._camXPhys = _camX0;
+    game.camX = _camX0 + (game.camOffX || 0);
     const shake = game.shakeTime > 0 ? game.shakeAmt * (game.shakeTime / Math.max(0.001, game.shakeDur)) : 0;
     const sx = shake ? (Math.random() - 0.5) * shake * 2 : 0;
     const sy = shake ? (Math.random() - 0.5) * shake * 2 : 0;
@@ -6409,6 +6933,9 @@ class Renderer {
     this.drawSky(game, theme, t);
     if (room) {
       this.drawParallax(game, theme, t);
+      this.drawDepthLayers(game, theme, t);
+      // シームレス連結：隣の部屋の地形を先に描いて、扉を跨いでも途切れないようにする
+      this.drawSeamlessSides(game, t);
       this.drawRoomDecor(game, theme, t);
       this.drawRoomGeometry(game, theme, t);
       this.drawTraps(game, theme, t);
@@ -6422,6 +6949,7 @@ class Renderer {
     }
     ctx.restore();
     ctx.restore();
+    game.camX = game._camXPhys;   // 物理用のカメラ位置に戻す
   }
 
   // ---------------------------------------------------------------------
@@ -6636,9 +7164,11 @@ class Renderer {
   // ROOM DECORATION (camouflaged behind tiles)
   // ---------------------------------------------------------------------
   drawRoomDecor(game, theme, t) {
+    this._drawDecorBody(game.room, game.camX, theme, t, VIEW_W);
+  }
+
+  _drawDecorBody(room, camX, theme, t, spanW) {
     const ctx = this.ctx;
-    const room = game.room;
-    const camX = game.camX;
     const th = room.theme;
     ctx.save();
     // Back wall texture band
@@ -6649,7 +7179,7 @@ class Renderer {
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
     const startX = Math.floor(camX / 200) * 200;
-    for (let wx = startX; wx < camX + VIEW_W + 200; wx += 200) {
+    for (let wx = startX; wx < camX + spanW + 200; wx += 200) {
       const sx = wx - camX;
       const rnd = hashRng(wx + room.id * 997);
       if (th === 'chapelle' || th === 'cathedral' || th === 'paris') {
@@ -6729,10 +7259,250 @@ class Renderer {
   }
 
   // ---------------------------------------------------------------------
+  // SEAMLESS SIDES — 隣室の地形をキャッシュ済みキャンバスで先に敷く
+  //   物理（collision / AI / trap）は原理的にここを通らない。見た目だけ。
+  // ---------------------------------------------------------------------
+  seamlessCache(room) {
+    if (!room) return null;
+    const key = room.id + '|' + room.w + 'x' + room.h + '|' + (this._depthKey || '');
+    if (this._seamSeen && this._seamSeen[key]) return this._seamSeen[key];
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(room.w));
+    cv.height = Math.max(1, Math.round(room.h) + 60);
+    const g2 = cv.getContext('2d');
+    const prev = this.ctx;
+    this.ctx = g2;
+    this.__ghost = true;          // 隣室描画中フラグ（decor を省く）
+    const theme = THEMES[room.theme] || THEMES.paris;
+    g2.translate(0, 0);
+    try {
+      this._drawDecorBody(room, 0, theme, 0, room.w);
+      this.drawRoomGeometry({ room, camX: 0, camOffX: 0, player: null, traps: [], enemies: [], effects: [], k: null }, theme, 0);
+    } catch (e) { /* 見た目だけなので失敗は無視 */ }
+    this.__ghost = false;
+    this.ctx = prev;
+    if (!this._seamSeen) this._seamSeen = {};
+    this._seamSeen[key] = cv;
+    return cv;
+  }
+
+  drawSeamlessSides(game, t) {
+    const parts = game.seamParts || [];
+    if (!parts.length) return;
+    const ctx = this.ctx;
+    const camX = game.camX;
+    const originX = game.seamOriginX || 0;
+    for (const part of parts) {
+      const cv = this.seamlessCache(part.alt);
+      if (!cv) continue;
+      // 隣室の「部屋ローカル座標」を自室原点に足して画面座標へ
+      const dx = part.dx + originX - camX;
+      if (dx > this.cssW || dx + cv.width < 0) continue;
+      const sx0 = Math.max(0, Math.round(-dx));
+      const sw = Math.min(cv.width - sx0, Math.round(this.cssW - Math.max(0, dx)) + 2);
+      if (sw > 0) ctx.drawImage(cv, sx0, 0, sw, cv.height, Math.round(dx) + sx0, 0, sw, cv.height);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // 2.5D DEPTH — 見た目だけの奥行き（当たり判定は 2D のまま）
+  //   ・奥の壁レイヤー：カメラ移動に対して遅れて動く擬似パララックス
+  //   ・手前の石：右下へ「側面」と「上面」を押し出して箱感を出す
+  // ---------------------------------------------------------------------
+  depthOn() {
+    return !!(this.depth && this.depth.on && this.depth.strength > 0.02);
+  }
+
+  // カメラ位置から決まる深度の基準値（カメラが動くと奥がずれる）
+  depthShift(camX, k) {
+    const st = this.depth.strength;
+    return -camX * this.depth.backOffX * k * st * 0.0042;
+  }
+
+  // 奥の壁レイヤーは重いので、テーマ＋強さごとに一度だけ描いて使い回す。
+  // カメラ移動ぶんは描画時に translate するだけ（＝疑似的なパララックス）。
+  buildDepthCache(themeName, theme) {
+    const st = this.depth.strength;
+    const key = themeName + '|' + st.toFixed(2) + '|' + this.depth.layers;
+    if (this._depthKey === key && this._depthCanvas) return this._depthCanvas;
+    const W = VIEW_W + 700;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = VIEW_H;
+    const g2 = c.getContext('2d');
+    const prev = this.ctx;
+    // 一時的にキャッシュ用コンテキストへ描く
+    this.ctx = g2;
+    this._drawDepthLayersRaw(theme, 300);
+    this.ctx = prev;
+    this._depthCanvas = c;
+    this._depthKey = key;
+    return c;
+  }
+
+  drawDepthLayers(game, theme, t) {
+    if (!this.depthOn()) return;
+    const ctx = this.ctx;
+    const camX = game.camX;
+    const st = this.depth.strength;
+    const cache = this.buildDepthCache((game.room && game.room.theme) || 'paris', theme);
+    const shift = this.depthShift(camX, 0.55);
+    const dx = -300 + ((shift % 700) + 700) % 700;
+    // 見えている範囲だけ転送する（全面 blit を避けて負荷を下げる）
+    const sx0 = Math.max(0, -dx);
+    const sw = Math.min(cache.width - sx0, VIEW_W - Math.max(0, dx) + 2);
+    if (sw > 0) ctx.drawImage(cache, sx0, 0, sw, cache.height, dx + sx0, 0, sw, cache.height);
+    // 霞はキャッシュできない（毎フレーム同じ）ので軽く重ねる
+    const fog = ctx.createLinearGradient(0, 180, 0, VIEW_H);
+    fog.addColorStop(0, theme.fog);
+    fog.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = fog;
+    ctx.globalAlpha = 0.30 * st;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.globalAlpha = 1;
+  }
+
+  _drawDepthLayersRaw(theme, baseOff) {
+    const ctx = this.ctx;
+    const n = this.depth.layers;
+    // 奥ほど暗く、ぼんやりした柱を並べる（城内の奥行き）
+    //   4層ぶんを別々の高さで描く代わりに、1層ぶんを「縮小＋上下のずれ」で
+    //   重ねる（見た目はほぼ同じで、塗りつぶしの面積が減る）。
+    const passes = [
+      { k: 4, d: 1.00, dy: 0,   scale: 1.06, gap: 286, w: 222, a: 0.20 },
+      { k: 3, d: 0.75, dy: 6,   scale: 1.02, gap: 252, w: 196, a: 0.19 },
+      { k: 2, d: 0.50, dy: 12,  scale: 0.98, gap: 218, w: 170, a: 0.18 },
+      { k: 1, d: 0.25, dy: 18,  scale: 0.94, gap: 184, w: 144, a: 0.16 },
+    ];
+    for (const P of passes) {
+      if (P.k > n) continue;
+      const off = baseOff - P.k * 26;
+      const colW = P.w;
+      const top = -40 + P.d * 40 + P.dy;
+      const bot = VIEW_H + 60;
+      const cols = Math.ceil((VIEW_W + 700) / P.gap) + 2;
+      ctx.fillStyle = (P.k % 2 ? 'rgba(10,7,14,' : 'rgba(18,12,20,') + P.a + ')';
+      ctx.beginPath();
+      for (let i = -1; i < cols; i++) {
+        const x = i * P.gap + off;
+        ctx.rect(x, top, colW, bot - top);
+        // アーチ（上部）
+        ctx.moveTo(x + colW, top + colW * 0.62);
+        ctx.arc(x + colW / 2, top + colW * 0.62, colW * 0.52, 0, Math.PI, true);
+        ctx.closePath();
+      }
+      ctx.fill();
+      // 奥の灯りは「一番奥」と「中景」だけに絞る
+      if (P.k === 4 || P.k === 2) {
+        for (let i = -1; i < cols; i++) {
+          if ((i + P.k) % 3 !== 0) continue;
+          const gx = i * P.gap + off + colW * 0.5, gy = 210 + P.d * 120;
+          const g = ctx.createRadialGradient(gx, gy, 2, gx, gy, 70 * P.d);
+          g.addColorStop(0, theme.glow);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.globalAlpha = 0.16 + 0.16 * P.d;
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(gx, gy, 70 * P.d, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
+
+  // 1つの石（2D矩形）に押し出しを付けて「箱」に見せる
+  // 押し出しの形状は「面の色」だけ持たせたキャッシュに描き、毎フレームは
+  // それを drawImage するだけにする（色計算とパス生成のコストを消す）。
+  slabCache(theme, themeName, thin) {
+    const st = this.depth.strength;
+    const key = 'slab|' + themeName + '|' + thin + '|' + st.toFixed(2);
+    this._slabSeen = this._slabSeen || {};
+    if (this._slabSeen[key]) return this._slabSeen[key];
+    const side = Math.max(3, (thin ? this.depth.side * 0.55 : this.depth.side) * st);
+    const top = Math.max(2, (thin ? this.depth.top * 0.5 : this.depth.top) * st);
+
+    // 上面（明るい面）: 1px 幅の縦グラデを横に伸ばして使う
+    const topCv = document.createElement('canvas');
+    topCv.width = 1;
+    topCv.height = Math.max(1, Math.ceil(top));
+    const g1 = topCv.getContext('2d');
+    const gTop = g1.createLinearGradient(0, 0, 0, topCv.height);
+    gTop.addColorStop(0, shade(theme.stoneTop, 0.34));
+    gTop.addColorStop(1, shade(theme.stoneTop, 0.06));
+    g1.fillStyle = gTop;
+    g1.fillRect(0, 0, 1, topCv.height);
+
+    // 側面（暗い面）: 4px 高さの横グラデを縦に伸ばして使う
+    const sideCv = document.createElement('canvas');
+    sideCv.width = Math.max(2, Math.ceil(side));
+    sideCv.height = 1;
+    const g2 = sideCv.getContext('2d');
+    const gSide = g2.createLinearGradient(0, 0, sideCv.width, 0);
+    gSide.addColorStop(0, shade(theme.stone, -0.34));
+    gSide.addColorStop(1, shade(theme.stoneDeep, -0.58));
+    g2.fillStyle = gSide;
+    g2.fillRect(0, 0, sideCv.width, 1);
+
+    const rec = { topCv, sideCv, top, side, skew: side * 0.55 };
+    this._slabSeen[key] = rec;
+    return rec;
+  }
+
+  drawDepthForSlab(x, y, w, h, theme, thin) {
+    if (!this.depthOn()) return;
+    const ctx = this.ctx;
+    const c = this.slabCache(theme, this._curThemeName || 'paris', thin);
+    // 上面：板の上端に明るい帯（少し右へずらして遠近を出す）
+    ctx.drawImage(c.topCv, Math.round(x), Math.round(y - c.top), Math.ceil(w + c.skew), c.topCv.height);
+    // 側面：板の右端を押し出した暗い面
+    const sh = Math.max(2, Math.round(h - c.top + 2));
+    ctx.drawImage(c.sideCv, Math.round(x + w), Math.round(y - c.top + 2), c.sideCv.width, sh);
+    void h;
+  }
+
+  _drawDepthForSlabRaw(x, y, w, h, theme, thin) {
+    const ctx = this.ctx;
+    const st = this.depth.strength;
+    const side = Math.max(3, (thin ? this.depth.side * 0.55 : this.depth.side) * st);
+    const top = Math.max(2, (thin ? this.depth.top * 0.5 : this.depth.top) * st);
+    ctx.save();
+    // 上面（明るい面）
+    const gTop = ctx.createLinearGradient(x, y - top, x, y);
+    gTop.addColorStop(0, shade(theme.stoneTop, 0.34));
+    gTop.addColorStop(1, shade(theme.stoneTop, 0.08));
+    ctx.fillStyle = gTop;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x + w + side * 0.55, y - top);
+    ctx.lineTo(x + side * 0.55, y - top);
+    ctx.closePath();
+    ctx.fill();
+    // 側面（右へ押し出し・暗い面）
+    const gSide = ctx.createLinearGradient(x + w, y, x + w + side, y);
+    gSide.addColorStop(0, shade(theme.stone, -0.34));
+    gSide.addColorStop(1, shade(theme.stoneDeep, -0.55));
+    ctx.fillStyle = gSide;
+    ctx.beginPath();
+    ctx.moveTo(x + w, y);
+    ctx.lineTo(x + w + side, y - top + 2);
+    ctx.lineTo(x + w + side, y + h - top + 2);
+    ctx.lineTo(x + w, y + h);
+    ctx.closePath();
+    ctx.fill();
+    // 接地影（足元の暗がり）
+    const gSh = ctx.createLinearGradient(0, y + h, 0, y + h + 18 * st);
+    gSh.addColorStop(0, 'rgba(0,0,0,0.42)');
+    gSh.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gSh;
+    ctx.fillRect(x - 4, y + h, w + side + 8, 18 * st);
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------------
   // GEOMETRY: solids, crumble ledges, one-ways, breakables, anchors,
   // candles, relics, mirrors, signs, doors
   // ---------------------------------------------------------------------
   drawRoomGeometry(game, theme, t) {
+    const __vsp = (typeof vdoorSpan === 'function' && game.room) ? vdoorSpan(game.room) : null;
     const ctx = this.ctx;
     const room = game.room;
     const camX = game.camX;
@@ -6741,6 +7511,8 @@ class Renderer {
     for (const ow of room.oneWays || []) {
       const x = ow.x - camX;
       if (x + ow.w < -40 || x > VIEW_W + 40) continue;
+      // 2.5D：足場の側面（奥行きの押し出し）
+      if (this.depthOn()) this.drawDepthForSlab(ow.x - camX, ow.y, ow.w, 13, theme, true);
       const g = ctx.createLinearGradient(0, ow.y, 0, ow.y + 16);
       g.addColorStop(0, theme.stoneTop);
       g.addColorStop(1, theme.stoneDeep);
@@ -6763,7 +7535,60 @@ class Renderer {
     for (const s of game.activeSolids()) {
       const x = s.x - camX;
       if (x + s.w < -40 || x > VIEW_W + 40) continue;
+      // 2.5D：奥行きの押し出しは「石を描く前」に置く（影側が石の裏に回る）
+      if (this.depthOn() && !s.ladder) this.drawDepthForSlab(x, s.y, s.w, s.h, theme, false);
       this.drawStoneBlock(x, s.y, s.w, s.h, theme, s);
+    }
+
+    // 上下の出入口（梯子）: 上の部屋へ続く天井の穴と、下の部屋へ落ちる床の穴。
+    // 天井の板は穴の部分だけ「くり抜いて」描き直す（当たり判定はそのまま）。
+    if (__vsp) {
+      const upIdx2 = game.verticalNeighbor(-1), downIdx2 = game.verticalNeighbor(1);
+      const x0 = __vsp.x0 - camX, x1 = __vsp.x1 - camX;
+      const shaftW = x1 - x0;
+      if (!isFinite(x0) || !isFinite(x1)) return;
+      if (upIdx2 !== null) {
+        // 穴の奥（上へ抜ける闇）
+        const g = ctx.createLinearGradient(0, -10, 0, 150);
+        g.addColorStop(0, 'rgba(6,3,10,1)');
+        g.addColorStop(0.55, 'rgba(28,16,26,0.96)');
+        g.addColorStop(1, 'rgba(48,30,34,0.9)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x0, -20, shaftW, 148);
+        // 梯子（登れる見た目）
+        ctx.strokeStyle = 'rgba(196,158,110,0.75)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x0 + 10, 20); ctx.lineTo(x0 + 10, 128);
+        ctx.moveTo(x1 - 10, 20); ctx.lineTo(x1 - 10, 128);
+        ctx.stroke();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(176,138,94,0.62)';
+        for (let y = 30; y < 128; y += 20) {
+          ctx.beginPath(); ctx.moveTo(x0 + 10, y); ctx.lineTo(x1 - 10, y); ctx.stroke();
+        }
+        // 縁のハイライト
+        ctx.fillStyle = 'rgba(255,196,120,0.10)';
+        ctx.fillRect(x0, 118, shaftW, 12);
+      }
+      if (downIdx2 !== null) {
+        const holeY = (room.floorHole && room.floorHole.y) || 600;
+        const g = ctx.createLinearGradient(0, holeY - 4, 0, holeY + 126);
+        g.addColorStop(0, 'rgba(30,18,26,0.95)');
+        g.addColorStop(1, 'rgba(4,2,8,1)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x0, holeY - 4, shaftW, 130);
+        // 穴の縁
+        ctx.fillStyle = 'rgba(255,196,120,0.16)';
+        ctx.fillRect(x0, holeY - 4, shaftW, 6);
+        // ぶら下がる鎖（落ち先の目印）
+        ctx.strokeStyle = 'rgba(170,140,100,0.5)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          const cx2 = x0 + 24 + i * (shaftW - 48) / 2;
+          ctx.beginPath(); ctx.moveTo(cx2, holeY); ctx.lineTo(cx2 + (i % 2 ? 4 : -4), holeY + 120); ctx.stroke();
+        }
+      }
     }
 
     // breakable walls
@@ -6986,14 +7811,57 @@ class Renderer {
     };
     const doorTop = (side) => Math.max(120, Math.min(600, floorAt(side)) - 148);
     const rTop = doorTop('right'), lTop = doorTop('left');
-    doorGlow(maxX - 34 - camX, rTop, 30, 146, true);
-    doorGlow(4 - camX, lTop, 30, 146, false);
+    // 左右の扉は「本当に横に隣の部屋がある」ときだけ描く（上下の部屋へは梯子で移動）
+    const nextRoom = game.roomIdx < ROOMS.length - 1 ? ROOMS[game.roomIdx + 1] : null;
+    const prevRoom = game.roomIdx > 0 ? ROOMS[game.roomIdx - 1] : null;
+    const rightOpen = !!nextRoom && nextRoom.mapY === room.mapY;
+    const leftOpen = !!prevRoom && prevRoom.mapY === room.mapY;
+    if (rightOpen) doorGlow(maxX - 34 - camX, rTop, 30, 146, true);
+    if (leftOpen) doorGlow(4 - camX, lTop, 30, 146, false);
+
+    // --- 上下の出入口（梯子）: 前の部屋が上なら天井の穴、次が下なら床の穴 ---
+    const vs = vdoorSpan(room);
+    const upIdx = game.verticalNeighbor(-1), downIdx = game.verticalNeighbor(1);
+    const upRoom = upIdx === null ? null : ROOMS[upIdx];
+    const downRoom = downIdx === null ? null : ROOMS[downIdx];
+    const vDoor = (cx, top, dir) => {
+      if (!isFinite(cx) || !isFinite(top)) return;   // 念のため（配置データ異常で描画を止めない）
+      ctx.save();
+      const w = 96, hh = 62;
+      const g3 = ctx.createLinearGradient(cx, top, cx, top + hh);
+      g3.addColorStop(0, 'rgba(255,190,120,0.55)');
+      g3.addColorStop(1, 'rgba(255,120,60,0.12)');
+      ctx.fillStyle = g3;
+      ctx.fillRect(cx - w / 2, top, w, hh);
+      ctx.strokeStyle = 'rgba(255,206,140,0.55)';
+      ctx.lineWidth = 1.6;
+      ctx.strokeRect(cx - w / 2, top, w, hh);
+      ctx.fillStyle = 'rgba(16,5,10,0.78)';
+      ctx.beginPath();
+      ctx.arc(cx, top + hh / 2, 19, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,206,140,0.45)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '700 20px "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif';
+      ctx.shadowColor = 'rgba(255,170,80,0.95)';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = 'rgba(255,248,222,1)';
+      ctx.fillText(dir === 'up' ? '▲' : '▼', cx, top + hh / 2 + 1);
+      ctx.restore();
+    };
+    const midX = (Number(vs.x0) + Number(vs.x1)) / 2 - camX;
+    if (upRoom) vDoor(midX, 40, 'up');
+    if (downRoom) vDoor(midX, room.h - 104, 'down');
 
     // Boss seal: crimson barrier over both doorways while the boss lives
     if (game.boss && !game.boss.dead) {
       ctx.save();
       const pulse = 0.34 + Math.sin(t * 4.2) * 0.16;
-      for (const [dx, top] of [[maxX - 36 - camX, rTop], [2 - camX, lTop]]) {
+      for (const [dx, top] of (rightOpen || leftOpen)
+        ? [[maxX - 36 - camX, rTop], [2 - camX, lTop]] : []) {
         const g2 = ctx.createLinearGradient(dx, top, dx, top + 150);
         g2.addColorStop(0, `rgba(255,40,80,${pulse * 0.5})`);
         g2.addColorStop(0.5, `rgba(255,40,80,${pulse})`);
@@ -9335,6 +10203,8 @@ class Renderer {
 // Depends on: difficulty.js, data.js, audio.js, levels.js, entities.js, bosses.js, renderer.js
 
 const SAVE_KEY = 'cvbc_save_v2';
+// シームレス連結の試験範囲（第1章＝本編20面）
+const SEAMLESS_STAGES = 20;
 const STEP = 1 / 120;
 const MAX_STEPS = 8;
 
@@ -9489,6 +10359,22 @@ class Game {
     if (this.el.muteBtn) this.el.muteBtn.addEventListener('click', () => this.toggleMute());
     if (this.el.pauseBtn) this.el.pauseBtn.addEventListener('click', () => this.openPause());
     if (this.el.mapBtn) this.el.mapBtn.addEventListener('click', () => this.openMap());
+  }
+
+  restoreDepthSetting() {
+    const r = this.renderer;
+    if (!r) return;
+    try {
+      const raw = localStorage.getItem('cvbc_depth');
+      if (raw !== null) {
+        const v = parseFloat(raw);
+        if (Number.isFinite(v)) {
+          r.depth.strength = Math.max(0, Math.min(1.5, v));
+          r.depth.on = v > 0.02;
+          r._depthKey = null;
+        }
+      }
+    } catch (e) { /* noop */ }
   }
 
   refreshStartLabel() {
@@ -9814,9 +10700,13 @@ class Game {
   //   ・計測中はセーブ／ロードを一切使わない（進行・死亡・時間を引き継がない）
   //   ・ポーズ／タブ非表示／モーダル表示中は時計が止まる
   // =====================================================================
-  startRTA(diffId) {
+  startRTA(diffId, category) {
+    const cat = category === '100' ? '100' : 'any';
     this.rta = {
       active: true,
+      category: cat,
+      visited: [0],
+      bosses: {},
       diff: diffId,
       time: 0,
       running: true,
@@ -9824,7 +10714,7 @@ class Game {
       bestSplit: 0,
       stageStart: 0,
       splits: [],
-      record: this.rtaRecord(diffId),
+      record: this.rtaRecord(diffId, cat),
       saveRoom: null,
     };
     // 進行を汚さないよう、この難易度のスロットを退避してから空で始める
@@ -9883,9 +10773,11 @@ class Game {
     if (sub) {
       const stage = this.room ? this.roomIdx + 1 : 1;
       const best = this.rta.record;
+      const catName = this.rta.category === '100' ? '100%' : 'Any%';
+      const cleared = (this.rta.visited || []).length;
       sub.textContent = this.rta.finished
-        ? `GOAL — ${this.rta.diff.toUpperCase()} / ${this.formatRTA(this.rta.time)}`
-        : `STAGE ${stage}/200　BEST ${best ? this.formatRTA(best) + ' +' + this.formatRTA(this.rta.time - best) : '—'}`;
+        ? `GOAL — ${catName} ${this.rta.diff.toUpperCase()} / ${this.formatRTA(this.rta.time)}`
+        : `${catName} ${cleared}/200　STAGE ${stage}　BEST ${best ? this.formatRTA(best) + ' +' + this.formatRTA(this.rta.time - best) : '—'}`;
     }
   }
 
@@ -9898,21 +10790,44 @@ class Game {
     } catch (e) { return {}; }
   }
 
-  rtaRecord(diffId) {
-    const v = this.rtaRecords()[diffId];
+  rtaKey(diffId, category) {
+    return (category === '100' ? '100' : 'any') + ':' + diffId;
+  }
+
+  rtaRecord(diffId, category) {
+    const v = this.rtaRecords()[this.rtaKey(diffId, category)];
     return Number.isFinite(v) ? v : null;
   }
 
   saveRTARecord(t) {
     try {
       const all = this.rtaRecords();
-      if (!Number.isFinite(all[this.rta.diff]) || t < all[this.rta.diff]) {
-        all[this.rta.diff] = t;
+      const k = this.rtaKey(this.rta.diff, this.rta.category);
+      if (!Number.isFinite(all[k]) || t < all[k]) {
+        all[k] = t;
         localStorage.setItem('cvbc_rta_v1', JSON.stringify(all));
         return true;
       }
     } catch (e) { /* 記録できなくてもゲームは続行 */ }
     return false;
+  }
+
+  // 100% の全項目を満たしたか
+  rtaFullClear() {
+    if (!this.rta) return false;
+    const visited = (this.rta.visited || []).length;
+    // 200面ぶん（飛ばした面があれば未達）＋登場ボス全種
+    const needBosses = new Set(ROOMS.filter((r) => r.isBossRoom && r.bossId).map((r) => r.bossId));
+    let bossOk = true;
+    for (const b of needBosses) if (!this.rta.bosses || !this.rta.bosses[b]) bossOk = false;
+    return visited >= TOTAL_STAGES && bossOk;
+  }
+
+  // 「深奥到達」— Any% のゴール（200面目の守護者を倒した時点で成立）
+  rtaGoalReached() {
+    if (!this.rta) return false;
+    const visited = (this.rta.visited || []).length;
+    return this.roomIdx >= ROOMS.length - 1 || (this.room && this.room.stageNo >= TOTAL_STAGES) || visited >= 1;
   }
 
   // 目標（200面目＝ドラキュラ最終形態）を倒した瞬間
@@ -9921,17 +10836,28 @@ class Game {
     this.rta.running = false;
     this.rta.finished = true;
     this.updateRTAHud();
-    const isRecord = this.saveRTARecord(this.rta.time);
+    const full = this.rtaFullClear();
+    // 100% は条件を満たした時だけ記録する（未達は「到達」表示のみ）
+    const qualifies = this.rta.category !== '100' || full;
+    const isRecord = qualifies ? this.saveRTARecord(this.rta.time) : false;
     const prev = this.rta.record;
     const delta = prev !== null ? this.rta.time - prev : null;
-    this.rta.record = this.rtaRecord(this.rta.diff);
+    this.rta.record = this.rtaRecord(this.rta.diff, this.rta.category);
     this.updateRTAHud();
+    const catName = this.rta.category === '100' ? '100%' : 'Any%';
+    const cleared = (this.rta.visited || []).length;
+    const skipped = TOTAL_STAGES - cleared;
+    const goalTitle = full ? 'RTA — 100% GOAL' : (this.rta.category === '100' ? 'RTA — 到達（100%未達）' : 'RTA — Any% GOAL');
     this.openModal(`
-      <div class="modal-title">RTA — GOAL</div>
+      <div class="modal-title">${goalTitle}</div>
       <div class="info-box" style="text-align:center;font-size:13px;line-height:1.9">
-        難易度 <b style="color:${this.diff.color}">${this.diff.name}</b>　／　全200ステージ<br>
+        難易度 <b style="color:${this.diff.color}">${this.diff.name}</b>　／　カテゴリ <b>${catName}</b><br>
+        踏破 <b style="color:#ffd27d">${cleared}</b> / 200 面${skipped > 0 ? `（<b style="color:#8fe8ff">${skipped} 面スキップ</b>）` : ''}<br>
         <b style="color:#ffe6ad;font-size:30px;letter-spacing:0.06em;font-variant-numeric:tabular-nums">${this.formatRTA(this.rta.time)}</b><br>
-        ${isRecord ? '<span style="color:#8fe8ff">自己ベスト更新！</span>' : prev !== null ? `自己ベスト ${this.formatRTA(prev)}（${delta > 0 ? '+' : ''}${this.formatRTA(delta)}）` : '初記録'}
+        ${!qualifies ? '<span style="color:#ff9f6a">100% 未達 — 記録は保存されません（200面踏破＋全ボス撃破が必要）</span>'
+          : isRecord ? '<span style="color:#8fe8ff">自己ベスト更新！</span>'
+          : prev !== null ? `${catName} 自己ベスト ${this.formatRTA(prev)}（${delta > 0 ? '+' : ''}${this.formatRTA(delta)}）` : '初記録'}
+        ${this.rta.category === 'any' && skipped > 0 ? `<br><span style="color:#9fb8c8;font-size:11px">Any%：${skipped} 面を飛ばして最奥へ到達（短縮ルート成立）</span>` : ''}
       </div>
       <div class="victory-stats">
         <div class="stat-card"><div class="stat-val">${this.stats.deaths}</div><div class="stat-lbl">死亡回数</div></div>
@@ -9939,7 +10865,7 @@ class Game {
         <div class="stat-card"><div class="stat-val" style="color:#ffd27d">${this.stats.chainParries || 0}</div><div class="stat-lbl">鎖パリィ</div></div>
       </div>
       <div class="modal-footer">
-        <button class="gothic-btn" data-action="rta-retry" data-value="${this.rta.diff}">同じ難易度でもう一度</button>
+        <button class="gothic-btn" data-action="rta-retry" data-value="${this.rta.diff}:${this.rta.category}">同じ条件でもう一度</button>
         <button class="gothic-btn secondary" data-action="rta-menu">難易度を選び直す</button>
         <button class="gothic-btn secondary" data-action="title">タイトル</button>
       </div>
@@ -9949,6 +10875,15 @@ class Game {
   // RTA 開始用の難易度選択（タイトルの「RTA計測」から）
   openRTASelect() {
     this.rtaPick = this.rtaPick || this.selectedDiff || 'normal';
+    this.rtaCatPick = this.rtaCatPick === '100' ? '100' : 'any';
+    const catCards = [['any', 'Any%', 'カテゴリ：Any% — 最奥の守護者を倒せばゴール。ステージ飛ばし可。'],
+                      ['100', '100%', 'カテゴリ：100% — 全200面の踏破＋登場ボスの全撃破が条件。']]
+      .map(([id, name, desc]) => {
+        const on = id === this.rtaCatPick;
+        return `<button class="mini-btn${on ? ' active' : ''}" data-action="rta-cat" data-value="${id}"
+          title="${desc}" style="flex:0 0 auto;min-width:220px;padding:8px 14px;text-align:left;line-height:1.5;${on ? 'border-color:#ffd27d;color:#ffd27d' : ''}">
+          <b style="font-size:13px">${on ? '▶ ' : ''}${name}</b><br><span style="font-size:10.5px;opacity:0.8">${desc.replace('カテゴリ：' + name + ' — ', '')}</span></button>`;
+      }).join('');
     const cards = DIFFICULTY_ORDER.map((id) => {
       const d = DIFFICULTIES[id];
       const rec = this.rtaRecord(id);
@@ -9957,7 +10892,7 @@ class Game {
     }).join('');
     const rows = DIFFICULTY_ORDER.map((id) => {
       const d = DIFFICULTIES[id];
-      const rec = this.rtaRecord(id);
+      const rec = this.rtaRecord(id, this.rtaCatPick);
       return `<div class="rta-record"><span class="rta-diff">${d.name}</span><b>${rec !== null ? this.formatRTA(rec) : '—'}</b></div>`;
     }).join('');
     const d = DIFFICULTIES[this.rtaPick];
@@ -9968,16 +10903,24 @@ class Game {
         計測中は<b>セーブ／続きからを使わず</b>、進行状況にも影響しません（記録は別保存）。<br>
         ポーズ・タブ非表示・メニュー表示中は時計が止まります。死亡しても時計は止まりません。
       </div>
+      <div class="modal-section-title">カテゴリ</div>
+      <div class="warp-list">${catCards}</div>
+      <div class="info-box" style="font-size:12px">
+        <b style="color:#ffd27d">${this.rtaCatPick === '100' ? '100%' : 'Any%'}</b> —
+        ${this.rtaCatPick === '100'
+          ? '200面すべて踏破＋全ボス撃破が条件。飛ばした面があるとゴールになりません。'
+          : '最奥の守護者を倒せばゴール。扉ロックキャンセル・床抜けダッシュで面を飛ばして短縮できる。'}
+      </div>
       <div class="modal-section-title">難易度を選択（←→ で選択 / Enter で開始）</div>
       <div class="warp-list">${cards}</div>
       <div class="info-box" style="border-color:${d ? d.color : '#c9a165'}66">
         <b style="color:${d ? d.color : '#c9a165'}">${d ? d.name + ' — ' + d.targetText : ''}</b><br>
         ${d ? d.desc : ''}
       </div>
-      <div class="modal-section-title">自己ベスト</div>
+      <div class="modal-section-title">自己ベスト（${this.rtaCatPick === '100' ? '100%' : 'Any%'}）</div>
       <div>${rows}</div>
       <div class="modal-footer">
-        <button class="gothic-btn" data-action="rta-start" data-value="${this.rtaPick}">計測スタート（${d ? d.name : ''}）</button>
+        <button class="gothic-btn" data-action="rta-start" data-value="${this.rtaPick}:${this.rtaCatPick}">計測スタート（${this.rtaCatPick === '100' ? '100%' : 'Any%'} / ${d ? d.name : ''}）</button>
         <button class="gothic-btn secondary" data-action="close-modal">閉じる</button>
       </div>
     `);
@@ -10001,11 +10944,10 @@ class Game {
       // RTA 計測中はディスクに書かない（通常プレイの進行を絶対に壊さない）
       if (!rtaActive) writeSaveStore(this.store);
     }
-    if (rtaActive && this.rta.restoreSlot) {
-      // RTA 開始時に退避した「通常プレイの進行」をメモリに書き戻す
-      this.store[diffId] = this.rta.restoreSlot;
-      this.rta.restoreSlot = null;
-    }
+    // RTA 開始時に退避した「通常プレイの進行」は、ステージ1に配置し終えてから
+    // 書き戻す（ここで戻すと slot.room が元の続きの部屋になり、RTA が途中の
+    // 面から始まってしまう）。書き戻す内容だけ覚えておく。
+    const rtaRestore = rtaActive && this.rta.restoreSlot ? this.rta.restoreSlot : null;
     document.documentElement.style.setProperty('--diff-color', this.diff.color);
     const slot = this.slot();
     this.relics = (slot.relics || []).filter((r) => RELICS[r]);
@@ -10053,10 +10995,19 @@ class Game {
     this.player = new Player(this, 120, 550);
     this.applyProgressBonuses();
 
-    const startRoom = clamp(slot.room || 0, 0, ROOMS.length - 1);
+    // RTA は「必ず1面目から」。続きのスロットがどの面を指していても 0 で始める。
+    const startRoom = rtaActive ? 0 : clamp(slot.room || 0, 0, ROOMS.length - 1);
     this.camX = 0;
     this.player.weaponIdx = Math.max(0, WEAPONS.findIndex((w) => w.id === this.weapons[this.weapons.length - 1]));
     this.loadRoom(startRoom, 'start');
+    if (rtaActive && this.rta) {
+      // ステージ1に立った後で通常プレイの進行をメモリに戻す。
+      this.rta.restoreSlot = null;
+      if (rtaRestore) this.store[diffId] = rtaRestore;
+      this.rta.stageStart = 0;
+      this.rta.prevSplitTime = 0;
+      this.rta.splits = [];
+    }
     this.sound.playMusic(ACTS[this.room.act].bgm);
     this.updateHud();
     this.showBanner(
@@ -10107,7 +11058,16 @@ class Game {
     return inst;
   }
 
-  loadRoom(idx, fromDir) {
+  loadRoom(idx, fromDir, opts) {
+    const keep = opts && opts.keepPlayer;
+    this.camOffX = 0;
+    // RTA: 踏破面を記録（Any% の判定と HUD 用）
+    if (this.rta && this.rta.active) {
+      if (!this.rta.visited) this.rta.visited = [0];
+      if (!this.rta.visited.includes(idx)) this.rta.visited.push(idx);
+      // 透過ルート：部屋番号を飛ばして入ったら、下の面は「踏破扱いにしない」
+      //（＝バグで飛ばすほど速い、を成立させる）
+    }
     // RTA: ステージ通過のスプリット（計測中のみ）
     if (this.rta && this.rta.active && !this.rta.finished && Number.isFinite(this.rta.stageStart) &&
         idx !== this.rta.stageStart && Number.isInteger(this.rta.stageStart)) {
@@ -10210,7 +11170,7 @@ class Game {
 
     // Player placement
     const p = this.player;
-    if (p) {
+    if (p && !keep) {
       if (p.clearChain) p.clearChain(); else p.grapple = null;
       p.atkState = null;
       if (fromDir === 'right') {
@@ -10220,6 +11180,16 @@ class Game {
       } else if (fromDir === 'left') {
         const d = doorSpawn(this, room, 'left');
         p.x = d.x; p.y = d.y; p.facing = 1;
+      } else if (fromDir === 'up') {
+        // 下の部屋から縦穴を登ってきた：床の穴の脇に立つ（穴に落ちない位置）
+        const vs = vdoorSpan(room);
+        p.x = clamp(vs.x0 - 60, 90, room.w - 90);
+        p.y = 520; p.facing = 1;
+      } else if (fromDir === 'down') {
+        // 上の部屋から縦穴を落ちてきた：天井の穴の真下から降りていく
+        const vs = vdoorSpan(room);
+        p.x = (vs.x0 + vs.x1) / 2;
+        p.y = 190; p.facing = 1;
       } else if (fromDir === 'warp') {
         // warpTo() places the player beside the mirror
       } else {
@@ -10248,8 +11218,12 @@ class Game {
     this.mirrorLit = true;
     this.mirrorRoomIdx = idx;
 
-    this.roomLock = 0.55; // prevents instantly bouncing back through a doorway
-    this.showBanner(ACTS[room.act].name, room.name, this.diff.name + ' / ' + room.name);
+    this.roomLock = keep ? 0 : 0.55; // prevents instantly bouncing back through a doorway
+    // 扉ロックキャンセル：入室した直後にパリィ／攻撃を当てると扉のロックが解ける。
+    //（演出の 0.55 秒を飛ばせる＝RTA の短縮テクニック。仕様として維持する）
+    this.doorCancelTimer = 0.30;
+    this.doorCancelUsed = false;
+    if (!keep) this.showBanner(ACTS[room.act].name, room.name, this.diff.name + ' / ' + room.name);
     this.updateHud();
     this.saveGame();
 
@@ -10298,7 +11272,8 @@ class Game {
         steps++;
       }
       if (steps >= MAX_STEPS) this.accum = 0;
-      this.renderer.render(this, dt);
+      this.updateSeamlessCamera(dt);
+    this.renderer.render(this, dt);
       this.drawAimCursor();
     } catch (err) {
       // Never let a single bad frame stop the game loop.
@@ -10306,6 +11281,35 @@ class Game {
       this.accum = 0;
     }
     requestAnimationFrame((t) => this.loop(t));
+  }
+
+  // シームレス区間：境界に近づくとカメラを隣室側へずらして繋ぎ目を見せる
+  updateSeamlessCamera(dt) {
+    if (!this.room) { this.camOffX = 0; this.seamParts = []; return; }
+    const parts = this.seamlessPartners(this.roomIdx);
+    const camX = this.camX || 0;
+    const maxCam = Math.max(0, this.room.w - VIEW_W);
+    let want = 0;
+    const hasR = parts.some((q) => q.dir === 'right');
+    const hasL = parts.some((q) => q.dir === 'left');
+    const PEEK = 380;   // この距離まで近づいたら隣室を覗き始める
+    const NEAR = 110;   // 完全に繋がる距離
+    // 右の境界
+    if (hasR) {
+      const dR = this.room.w - this.player.x;
+      if (dR < PEEK) want = Math.min(300, Math.max(0, (PEEK - dR) * 1.15));
+    }
+    // 左の境界
+    if (hasL && want === 0) {
+      const dL = this.player.x;
+      if (dL < PEEK) want = -Math.min(300, Math.max(0, (PEEK - dL) * 1.15));
+    }
+    // 左境界を覗くときは、隣室の原点が自室の原点のまま動かないよう補正する
+    this.seamOriginX = 0;
+    const cur = this.camOffX || 0;
+    const next = cur + (want - cur) * Math.min(1, dt * 9);
+    this.camOffX = Math.abs(next) < 0.5 ? 0 : next;
+    this.seamParts = parts.map((p) => ({ room: this.room, alt: ROOMS[p.id], dir: p.dir, dx: p.dx }));
   }
 
   // =====================================================================
@@ -10594,6 +11598,17 @@ class Game {
       }
     }
 
+    // ---- 扉ロックキャンセル（入室直後のパリィ／攻撃でロック解除）----
+    if (this.doorCancelTimer > 0) this.doorCancelTimer -= dt;
+    if (this.doorCancelTimer > 0 && this.roomLock > 0 && !this.doorCancelUsed &&
+        (this.input.parryPressed || this.input.attackPressed)) {
+      this.roomLock = 0;
+      this.doorCancelUsed = true;
+      this.sound.sfx('parry');
+      this.spawnText(p.x, p.y - 60, 'ロック解除', '#8fe8ff', 13);
+      this.rings.push({ x: p.x, y: p.centerY, r: 6, maxR: 46, color: '#8fe8ff', alpha: 0.9 });
+    }
+
     // ---- Room transitions (doorways sit inside the boundary walls) ----
     if (this.roomLock > 0) this.roomLock -= dt;
     const bossSealed = !!(this.boss && !this.boss.dead); // doors lock until the boss falls
@@ -10603,17 +11618,90 @@ class Game {
     if (this.roomLock <= 0 && !bossSealed) {
       const hasNext = this.roomIdx < ROOMS.length - 1;
       const hasPrev = this.roomIdx > 0;
-      const atRight = p.x > this.room.w - DOORWAY_DEPTH || p.x > this.room.w + 8;
-      const atLeft = p.x < DOORWAY_DEPTH;
-      if (atRight && hasNext) {
-        this.loadRoom(this.roomIdx + 1, 'left');
-        return;
+      // シームレス区間では境界手前で乗り換える（＝シームレスに繋ぐ）。
+      // 非シームレスは従来どおり扉の奥まで入ってから。
+      const seamNow = this.seamlessOn() && (this.roomIdx < SEAMLESS_STAGES);
+      const rightTrig = seamNow ? Math.max(30, this.room.w - 110) : this.room.w - DOORWAY_DEPTH;
+      const leftTrig = seamNow ? 110 : DOORWAY_DEPTH;
+      const atRight = p.x > rightTrig || p.x > this.room.w + 8;
+      const atLeft = p.x < leftTrig;
+      const midCol = p.x > this.vdoorX0() && p.x < this.vdoorX1();
+      // 縦の出口は「天井まで登りきった／床の穴へ落ちきった」で判定する。
+      // 梯子（縦穴の柱）が正規ルートだが、柱の外から天井に届いた場合も
+      // 行き止まりにしないため通す（縦の行き止まりを作らないための保険）。
+      // シームレス区間の左右移動中は縦の出口を見ない（横に繋がっている部屋で
+      // 天井近くを跳んだ時に上へ吸われないようにする）
+      // ※左右の境界に近いときだけ。部屋の中央（縦穴・梯子）では縦の出口を通常どおり使う。
+      const nearEdge = p.x < 380 || p.x > this.room.w - 380;
+      const seamMove = this.seamlessOn() && this.roomIdx < SEAMLESS_STAGES && nearEdge && this.seamParts && this.seamParts.length > 0;
+      const atTop = p.y < 210 && (midCol || p.vy <= 0) && !seamMove;
+      // 床の穴は「落ち始めたら」で判定（穴の底で救済措置＝奈落ダメージが走る前に拾う）
+      const holeY = (this.room.floorHole && this.room.floorHole.y) || this.room.h;
+      // 「落ちきった」の閾値は部屋の高さ基準（床の穴が高い位置にある部屋でも
+      // 落ちきる前に部屋の外へ出ないように）
+      const atBottom = p.y > Math.max(this.room.h - 60, holeY + 10) && !seamMove;
+      const anyDoor = atRight || atLeft || atTop || atBottom;
+
+      // ---------------------------------------------------------------
+      // 出口の判定は「地図座標（mapX/mapY）」で行う（オープンワールド）。
+      //   ・天井の縦穴を登りきった → 真上の部屋（無ければ部屋番号の隣）
+      //   ・床の穴へ落ちきった   → 真下の部屋（無ければ部屋番号の隣）
+      //   ・左右の扉をくぐった   → 真横の部屋（無ければ部屋番号の隣）
+      //   進んだ先が本当の隣なら、部屋番号を飛ばして繋がる（＝ショートカット）。
+      // ---------------------------------------------------------------
+      const targetFor = (dir) => {
+        const byMap = this.roomByMap(this.room.mapX, this.room.mapY, dir);
+        if (byMap !== null) return byMap;
+        // 地図上の隣が無い＝地図の端。ここは塞ぐ（地図と地形を一致させる）。
+        // ただし闘技場（ボス部屋）は縦穴を掘らないので、番号の前後を非常口にする。
+        // 闘技場（ボス部屋）は縦穴を掘らず左右の扉で迂回するので、
+        // 横方向だけ番号の前後を非常口にする（縦は地図と地形を一致させる）。
+        if (this.room.isBossRoom && (dir === 'left' || dir === 'right')) return this.seqNeighbor(this.roomIdx, dir);
+        return null;
+      };
+      // 天井 → 上
+      if (atTop) {
+        const t = targetFor('up');
+        // 上に部屋が無ければ、地図上で左右に繋がっている部屋へ非常口で抜ける
+        if (t !== null && t !== this.roomIdx) { this.loadRoom(t, 'up'); return; }
       }
-      if (atLeft && hasPrev) {
-        this.loadRoom(this.roomIdx - 1, 'right');
-        return;
+      // 床の穴 → 下
+      if (atBottom) {
+        const t = targetFor('down');
+        if (t !== null && t !== this.roomIdx) { this.loadRoom(t, 'down'); return; }
+        // 床に穴が無い部屋：左右の扉を非常口にする
+        if (!this.room.floorHole && anyDoor) {
+          const side = targetFor(atLeft ? 'left' : 'right');
+          if (side !== null && side !== this.roomIdx) { this.loadRoom(side, atLeft ? 'right' : 'left'); return; }
+        }
+      }
+      // 左右の扉
+      if (atRight || atLeft) {
+        const dir = atRight ? 'right' : 'left';
+        const t = targetFor(dir);
+        if (t !== null && t !== this.roomIdx) {
+          // シームレス区間（第1章20面）は座標を引き継いで乗り換える
+          const seamless = this.seamlessOn() && this.roomIdx < SEAMLESS_STAGES && t < SEAMLESS_STAGES;
+          if (seamless) {
+            // 座標をそのまま持ち越す（境界を跨いでも位置が飛ばない）
+            const oldW = this.room.w;
+            const carry = atRight ? p.x - oldW : p.x + ROOMS[t].w;
+            this.loadRoom(t, atRight ? 'left' : 'right', { keepPlayer: true });
+            p.x = Math.max(-140, Math.min(this.room.w + 140, carry));
+            p.y = Math.max(60, Math.min(this.room.h - 20, p.y));
+            p.vx = Math.max(p.vx, atRight ? 120 : -120);
+            this.seamlessHop = 0.25;
+          } else {
+            this.loadRoom(t, atRight ? 'left' : 'right');
+          }
+          return;
+        }
       }
     }
+
+    // 部屋の外へは出られない（シームレスでない遷移・ボスの扉ロック中も含む）
+    if (p.x < -140) p.x = -140;
+    if (p.x > this.room.w + 140) p.x = this.room.w + 140;
 
     // ---- Boss auto-trigger in boss rooms ----
     if (this.room.isBossRoom && !this.boss && !this.bossDefeated[this.room.bossId] && !this.pendingBoss) {
@@ -10625,6 +11713,86 @@ class Game {
       this.hudAccum = 0;
       this.updateHud();
     }
+  }
+
+  // シームレス連結（試験導入：第1章の20面だけ）
+  //   対象どうしは「読み込み・バナー・扉ロック」無しで行き来できる。
+  seamlessOn() {
+    try { return localStorage.getItem('cvbc_seamless') !== '0'; } catch (e) { return true; }
+  }
+
+  seamlessPartners(idx) {
+    if (!this.seamlessOn()) return [];
+    if (idx == null || idx >= SEAMLESS_STAGES) return [];
+    const room = ROOMS[idx];
+    // 闘技場（ボス部屋）は扉が閉じるので連結しない（見た目も単室のまま）
+    if (!room || room.isBossRoom) return [];
+    const out = [];
+    const G = typeof WORLD_GRAPH !== 'undefined' ? WORLD_GRAPH[room.mapX + ',' + room.mapY] : null;
+    if (!G) return out;
+    for (const dir of ['left', 'right']) {
+      const j = G[dir];
+      if (j != null && j < SEAMLESS_STAGES && Math.abs(ROOMS[j].mapY - room.mapY) === 0) {
+        out.push({ id: j, dir, dx: dir === 'right' ? room.w : -ROOMS[j].w, rel: true });
+      }
+    }
+    return out;
+  }
+
+  // 地図座標で隣の部屋を引く（オープンワールドの遷移用）
+  //   dir: 'up' | 'down' | 'left' | 'right'
+  //   1) 接続グラフ（mapGraph）に載っている「実在する境界」を最優先
+  //   2) 無ければ同じ行/列で座標が隣の部屋（境界が繋がっていなくても非常口）
+  //   3) それも無ければ null（＝地図の端）
+  roomByMap(mapX, mapY, dir) {
+    const G = typeof WORLD_GRAPH !== 'undefined' ? WORLD_GRAPH : null;
+    const key = mapX + ',' + mapY;
+    if (G && G[key] && G[key][dir] != null) return G[key][dir];
+    const dx = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+    const dy = dir === 'up' ? -1 : dir === 'down' ? 1 : 0;
+    for (let i = 0; i < ROOMS.length; i++) {
+      const r = ROOMS[i];
+      if (r.mapX === mapX + dx && r.mapY === mapY + dy) return i;
+    }
+    return null;
+  }
+
+  // 部屋番号の前後（地図に隣が無いときの非常口）。dir が上下なら同じ列だけ許す。
+  seqNeighbor(idx, dir) {
+    const tryIdx = (j) => {
+      if (j < 0 || j >= ROOMS.length) return null;
+      const a = ROOMS[idx], b = ROOMS[j];
+      if (!a || !b) return null;
+      if ((dir === 'up' || dir === 'down') && b.mapX !== a.mapX) return null;
+      return j;
+    };
+    return (dir === 'up' || dir === 'left') ? tryIdx(idx - 1) : tryIdx(idx + 1);
+  }
+
+  // 上下の出入口（梯子・縦穴）の左右範囲
+  vdoorX0() { const f = this.room ? vdoorSpan(this.room) : { x0: 0 }; return f.x0; }
+  vdoorX1() { const f = this.room ? vdoorSpan(this.room) : { x1: 0 }; return f.x1; }
+
+  // 上下に繋がっている隣の部屋（dir=-1 で上、+1 で下）。無ければ null。
+  verticalNeighbor(dir) {
+    const room = this.room;
+    if (!room) return null;
+    // dir < 0 = 真上（mapY が小さい部屋） / dir > 0 = 真下（mapY が大きい部屋）
+    const cands = [ROOMS[this.roomIdx - 1], ROOMS[this.roomIdx + 1]].filter(Boolean);
+    for (const r of cands) {
+      if (r.mapX !== room.mapX) continue;
+      if (dir < 0 && r.mapY < room.mapY) return ROOMS.indexOf(r);
+      if (dir > 0 && r.mapY > room.mapY) return ROOMS.indexOf(r);
+    }
+    return null;
+  }
+
+  // 左右の扉が本当に繋がっているか（隣が真横にあるときだけ）
+  hdoorOpen(dir) {
+    const room = this.room;
+    if (!room) return false;
+    const r = ROOMS[this.roomIdx + dir];
+    return !!r && r.mapY === room.mapY;
   }
 
   // 歩行タイプの敵だけが「地面に置かれる」対象。書かれている y が階段や
@@ -11449,6 +12617,11 @@ class Game {
     if (pl && pl.clearChain) pl.clearChain();
     this.bossDefeated[key] = true;
     if (key !== boss.bossId) this.bossDefeated[boss.bossId] = true;
+    if (this.rta && this.rta.active) {
+      if (!this.rta.bosses) this.rta.bosses = {};
+      this.rta.bosses[key] = true;
+      this.rta.bosses[boss.bossId] = true;
+    }
     this.enemyProjs = [];
     this.rings.push({ x: boss.x, y: boss.centerY, r: 10, maxR: 520, color: '#ffe680', alpha: 1 });
     this.addShake(16, 0.8);
@@ -11491,6 +12664,26 @@ class Game {
       // 最終ステージの守護者を倒した場合もゴール
       setTimeout(() => this.finishRTA(), 1200);
     }
+  }
+
+  // 床抜けダッシュの救済：奈落に落ちたら部屋の入口へ戻す（死亡にしない）
+  floorDashRescue() {
+    const p = this.player;
+    if (!p || !this.room) return false;
+    const vs = vdoorSpan(this.room);
+    p.x = clamp((vs.x0 + vs.x1) / 2, 90, this.room.w - 90);
+    p.y = 240;
+    p.vx = 0;
+    p.vy = 0;
+    p.dead = false;
+    p.onGround = false;
+    p.floorDashTimer = 0;
+    p.dropThroughTimer = 0;
+    p.hurtIframes = Math.max(p.hurtIframes, 0.6);
+    this.spawnText(p.x, p.y - 40, '床抜け — 入口へ戻る', '#8fe8ff', 13);
+    this.spawnParticles(p.x, p.y, '#8fe8ff', 14, 160);
+    this.sound.sfx('mirror');
+    return true;
   }
 
   onPlayerDeath(reason) {
@@ -11694,9 +12887,28 @@ class Game {
     const cols = maxX - minX + 1, rows = maxY - minY + 1;
     // keep cells readable when a chapter is a single flat row (or a 2-row map)
     const cw0 = (W - 8) / cols, ch0 = (H - 8) / rows;
-    const ch = Math.min(ch0, Math.max(14, cw0 * 1.7));
-    const cw = cw0;
-    const offY = (H - ch * rows) / 2, offX = 0;
+    const ch = Math.min(ch0, Math.max(11, cw0 * 1.5));
+    const cw = Math.min(cw0, ch * 1.15);
+    const offY = (H - ch * rows) / 2, offX = (W - cw * cols) / 2;
+    // 部屋同士をつなぐ通路（上下左右）を先に描く — 入り組んだ配置が読めるように
+    const cellPos = (r) => ({ x: offX + (r.mapX - minX) * cw, y: offY + (r.mapY - minY) * ch });
+    const shownSet = new Set(shown.map((r) => r.id));
+    ctx.strokeStyle = 'rgba(190,160,110,0.42)';
+    ctx.lineWidth = 1.4;
+    for (const r of shown) {
+      if (!shownSet.has(r.id)) continue;
+      const a = cellPos(r);
+      const nb = [(r.id + 1), (r.id - 1)].filter((n) => shownSet.has(n));
+      for (const n of nb) {
+        const b = cellPos(ROOMS[n]);
+        const dx = ROOMS[n].mapX - r.mapX, dy = ROOMS[n].mapY - r.mapY;
+        if (Math.abs(dx) + Math.abs(dy) !== 1) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.x + cw / 2, a.y + ch / 2);
+        ctx.lineTo(b.x + cw / 2, b.y + ch / 2);
+        ctx.stroke();
+      }
+    }
     for (const r of shown) {
       const x = offX + (r.mapX - minX) * cw;
       const y = offY + (r.mapY - minY) * ch;
@@ -11773,11 +12985,28 @@ class Game {
     } else if (action === 'mute') this.toggleMute();
     else if (action === 'rta-menu') { this.stopRTA(); this.toTitle(); this.openRTASelect(); }
     else if (action === 'rta-pick') { this.rtaPick = value; this.openRTASelect(); }
-    else if (action === 'rta-start') { this.closeModal(); this.startRTA(value || this.rtaPick || this.selectedDiff); }
-    else if (action === 'rta-retry') { this.closeModal(); this.startRTA(value || (this.rta && this.rta.diff) || this.selectedDiff); }
+    else if (action === 'rta-cat') { this.rtaCatPick = value === '100' ? '100' : 'any'; this.openRTASelect(); }
+    else if (action === 'rta-start') {
+      const [d2, c2] = String(value || '').includes(':') ? String(value).split(':') : [value, this.rtaCatPick];
+      this.closeModal(); this.startRTA(d2 || this.rtaPick || this.selectedDiff, c2);
+    }
+    else if (action === 'rta-retry') {
+      const [d3, c3] = String(value || '').includes(':') ? String(value).split(':') : [value, this.rta && this.rta.category];
+      this.closeModal(); this.startRTA(d3 || (this.rta && this.rta.diff) || this.selectedDiff, c3);
+    }
     else if (action === 'rta-toggle') {
       if (this.rta && this.rta.active) { this.stopRTA(); this.showBanner('RTA — 計測終了', 'タイマーを停止しました', 'タイトルの「RTA計測」からいつでも再開できます。'); }
       else { this.closeModal(); this.openRTASelect(); }
+    } else if (action === 'depth') {
+      const v = parseFloat(value) || 0;
+      const r = this.renderer;
+      if (r) {
+        r.depth.strength = Math.max(0, Math.min(1.5, v));
+        r.depth.on = v > 0.02;
+        r._depthKey = null;   // キャッシュを作り直す
+      }
+      try { localStorage.setItem('cvbc_depth', String(v)); } catch (e) { /* noop */ }
+      this.openPause();
     } else if (action === 'close-modal') this.closeModal();
   }
 
@@ -11834,6 +13063,14 @@ class Game {
             鎖が刺さっている間は、いつでも L（パリィ）でその相手に「鎖パリィ」の追撃が入る</span>
           </div>
         </div>
+      </div>
+      <div class="modal-section-title">表示 — 奥行き（2.5D）</div>
+      <div class="info-box" style="font-size:12px">
+        見た目だけの奥行きです（当たり判定は2Dのまま、ゲームの内容は変わりません）。
+      </div>
+      <div class="warp-list">
+        ${[0, 0.6, 1, 1.4].map((v) => `<button class="mini-btn${Math.abs((this.renderer ? this.renderer.depth.strength : 1) - v) < 0.01 ? ' active' : ''}"
+          data-action="depth" data-value="${v}">${v === 0 ? 'オフ' : '強さ ' + Math.round(v * 100) + '%'}</button>`).join('')}
       </div>
       <div class="modal-section-title">難易度変更（進行状況は難易度ごとに独立保存）</div>
       <div class="warp-list">${diffButtons}</div>
@@ -11940,6 +13177,78 @@ class Game {
     `);
   }
 
+  // 地図を「実際の配置」で描く（インラインSVG）。上下左右に入り組んだ様子が
+  // そのまま見えるように、部屋をグリッドへ置いて通路線で繋ぐ。
+  mapSvg(shown, full) {
+    // 全図（200部屋）を出すときは、未訪問の部屋は「?」で伏せる（探索の手応えを残す）
+    if (full) shown = ROOMS;
+    if (!shown.length) return '';
+    const CW = 62, CH = 34, GAP = 6;
+    let minX = 99, maxX = -99, minY = 99, maxY = -99;
+    for (const r of shown) {
+      minX = Math.min(minX, r.mapX); maxX = Math.max(maxX, r.mapX);
+      minY = Math.min(minY, r.mapY); maxY = Math.max(maxY, r.mapY);
+    }
+    const cols = maxX - minX + 1, rows = maxY - minY + 1;
+    const w = cols * (CW + GAP) + GAP, h = rows * (CH + GAP) + GAP;
+    const pos = (r) => ({
+      x: GAP + (r.mapX - minX) * (CW + GAP),
+      y: GAP + (r.mapY - minY) * (CH + GAP),
+    });
+    const set = new Set(shown.map((r) => r.id));
+    const lines = [];
+    // オープンワールド：地図座標で隣り合う部屋を全部繋ぐ（番号の前後だけではない）
+    const drawn = new Set();
+    const connect = (r, o, alpha) => {
+      if (!o || !set.has(o.id)) return;
+      if (Math.abs(o.mapX - r.mapX) + Math.abs(o.mapY - r.mapY) !== 1) return;
+      const key = r.id < o.id ? r.id + '-' + o.id : o.id + '-' + r.id;
+      if (drawn.has(key)) return;
+      drawn.add(key);
+      const a = pos(r), b = pos(o);
+      const ax = a.x + CW / 2, ay = a.y + CH / 2, bx = b.x + CW / 2, by = b.y + CH / 2;
+      lines.push(`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="rgba(214,177,126,${alpha})" stroke-width="${alpha > 0.3 ? 3 : 2}" stroke-linecap="round" stroke-dasharray="${alpha > 0.3 ? '' : '5 5'}"/>`);
+    };
+    for (const r of shown) {
+      // 進行ルート（番号の前後）は実線、地図上の近道は破線
+      connect(r, ROOMS[r.id + 1], 0.55);
+      connect(r, ROOMS[r.id - 1], 0.55);
+      const gr = WORLD_GRAPH[r.mapX + ',' + r.mapY];
+      if (gr) for (const d of ['up', 'down', 'left', 'right']) {
+        const j = gr[d];
+        if (j != null && Math.abs(j - r.id) > 1) connect(r, ROOMS[j], 0.22);
+      }
+    }
+    const cells = shown.map((r) => {
+      const p = pos(r);
+      const known = this.mapRevealAll ? true : this.visitedRooms.has(r.id);
+      const visited = known;
+      const cur = r.id === this.roomIdx;
+      const bossKey = r.stageNo ? `${r.bossId}#${r.id - STORY_STAGES}` : r.bossId;
+      const bossDown = r.isBossRoom && (this.bossDefeated[bossKey] || this.bossDefeated[r.bossId]);
+      const fill = cur ? 'rgba(255,140,90,0.55)' : visited ? 'rgba(120,110,150,0.42)' : 'rgba(38,34,50,0.55)';
+      const stroke = cur ? '#ffd27d' : visited ? 'rgba(214,177,126,0.6)' : 'rgba(120,110,130,0.3)';
+      const label = visited || cur ? (r.stageNo ? `${r.stageNo}` : `${r.id + 1}`) : '?';
+      const marks = r.isBossRoom
+        ? `<circle cx="${p.x + CW - 9}" cy="${p.y + 9}" r="4.5" fill="${bossDown ? 'rgba(140,220,255,0.9)' : 'rgba(255,60,90,0.95)'}"/>`
+        : '';
+      return `<g><title>${visited || cur ? r.name : '？？？'}</title>
+        <rect x="${p.x}" y="${p.y}" width="${CW}" height="${CH}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="${cur ? 2 : 1.2}"/>
+        <text x="${p.x + CW / 2}" y="${p.y + CH / 2 + 4}" text-anchor="middle"
+          font-size="12" font-family="'Hiragino Kaku Gothic ProN',sans-serif"
+          fill="${cur ? '#fff3d6' : visited ? '#e6d2b5' : '#7c7188'}">${label}</text>${marks}</g>`;
+    }).join('');
+    // 縦長の全図でもセルが読める大きさになるよう、高さ優先で拡大する
+    const svgH = full ? Math.min(620, h) : Math.min(330, h);
+    const svgW = Math.round(w * (svgH / h));
+    const boxH = full ? 640 : 340;
+    return `<div style="overflow:auto;max-height:${boxH}px;padding:6px 0">
+      <svg viewBox="0 0 ${w} ${h}" width="${svgW}" height="${svgH}"
+           style="display:block;margin:0 auto;width:100%;max-width:${svgW}px">
+        ${lines.join('')}${cells}
+      </svg></div>`;
+  }
+
   openMap() {
     const prog = this.collectibleProgress();
     const shown = this.mapRooms();
@@ -11958,7 +13267,9 @@ class Game {
     }).join('');
     this.openModal(`
       <div class="modal-title">${inAbyss ? `深淵編 第${Math.floor((this.roomIdx - STORY_STAGES) / 15) + 1}章 地図` : 'パリ全図 — CASTLE MAP'}　<span style="font-size:11px;color:#d6b17e">STAGE ${this.roomIdx + 1}/${TOTAL_STAGES}</span></div>
-      <div class="ledger-grid" style="${inAbyss ? 'grid-template-columns:1fr' : ''}">${rows}</div>
+      ${this.mapSvg(shown, !inAbyss)}
+      <div class="modal-section-title">部屋ごとの収集状況</div>
+      <div class="ledger-grid" style="${inAbyss ? 'grid-template-columns:1fr 1fr' : ''}">${rows}</div>
       <div class="info-box">
         収集率：<b style="color:#ffd27d">${prog.found}/${prog.total}</b> 個　レリック：<b style="color:#ffd27d">${prog.relics}/${prog.relicTotal}</b>　隠し財宝：<b style="color:#ffd27d">${this.hiddenCount || 0}/${HIDDEN_TOTAL}</b><br>
         命の鏡に触れると記録・全回復。鏡の前で <b>T</b> を押すと訪れた部屋へ転移できます。<br>
@@ -12092,6 +13403,13 @@ function camXFor(room) {
 // the next frame cannot re-trigger the transition in the opposite direction.
 const DOORWAY_DEPTH = 96;
 
+// 縦穴の位置（部屋の中央 1/4 幅）。描画側と判定側で同じ数字を使う。
+function vdoorSpan(room) {
+  if (room && room.vdoorSpan) return room.vdoorSpan;
+  const w = room.w;
+  return { x0: w * 0.5 - 70, x1: w * 0.5 + 70 };
+}
+
 function doorSpawn(game, room, side) {
   const wantX = side === 'right' ? room.w - 96 : 96;
   let best = null;
@@ -12113,6 +13431,7 @@ window.addEventListener('load', () => {
   const game = new Game(canvas, renderer);
   window.__game = game;
   game.renderer.resize();
+  game.restoreDepthSetting();
   game.sound.playMusic('title');
   // Fill in the title screen's difficulty cards immediately
   game.renderTitle();
@@ -12197,5 +13516,5 @@ window.addEventListener('load', () => {
 });
 
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a6100d0d180d9ce5',t:'MTc5NTc3MTE2Mw=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a6100d0d180d9ce5',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
