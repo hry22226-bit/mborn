@@ -3768,7 +3768,8 @@ function buildVerticalShafts() {
     }
   });
 }
-buildVerticalShafts();
+// 上下のドア（縦穴・梯子）は廃止。縦移動は壁蹴りで登り、床の穴で降りる。
+// （地形のくり抜きは下の DREAD CLIMB で作り直す）
 
 // =========================================================================
 // OPEN WORLD — 地図座標ベースの接続グラフ
@@ -3809,11 +3810,99 @@ const WORLD_GRAPH = {};
     }
     return best;
   };
-  const carveUp = (room) => {
+  // =====================================================================
+  // DREAD CLIMB — 上の部屋へは「壁蹴りの縦坑」で登る（上方向のドアは廃止）
+  //   ・天井も床も“物理的に開ける”。矢印の付いた扉は作らない。
+  //   ・縦坑は「壁ぎわまで登れるレール」で作る：中央が開いた箱。
+  //     壁際の x で壁蹴り（壁に触れてジャンプ）を繰り返すと昇っていける。
+  //   ・足がかり（細い棚）も等間隔に置く：壁蹴りが苦手でも登れる保険。
+  // =====================================================================
+  const CLIMB_RAIL = 18;    // 登りレール（柱）の太さ
+  // 縦坑の x を先に確定する（上にも下にも部屋がある部屋は、同じ x で穴を開ける）
+  ROOMS.forEach((room, i) => {
+    const g = WORLD_GRAPH[room.mapX + ',' + room.mapY];
+    if (!g || g.id !== i || room.isBossRoom) return;
+    if (g.up == null && g.down == null) return;
     const cx = Math.round(room.w * _shaftFrac(room.mapX));
-    _carveBand(room, cx - VDOOR_HALF, cx + VDOOR_HALF, 120, 560);
+    room.climbShaft = { x0: cx - VDOOR_HALF, x1: cx + VDOOR_HALF, cx, top: 0 };
     room.vdoorSpan = { x0: cx - VDOOR_HALF, x1: cx + VDOOR_HALF };
-    room.vdoorUp = (WORLD_GRAPH[room.mapX + ',' + room.mapY] || {}).up;
+  });
+  const carveUp = (room) => {
+    const cx = room.climbShaft ? room.climbShaft.cx : Math.round(room.w * _shaftFrac(room.mapX));
+    const half = VDOOR_HALF;
+    // 1) 通り道をくり抜く（邪魔な足場・細い柱は消す）。天井までは抜かない（登れる高さを残す）
+    _carveBand(room, cx - half, cx + half, 84, 585);
+    // くり抜き残り（柱の切れ端）を再度削る：坑の中に障害物があると足がかりに乗れない
+    _carveBand(room, cx - half - 1, cx + half + 1, 84, 585);
+    const floorY = (() => {
+      let best = 600;
+      for (const s of room.solids) {
+        if (s.ladder || s.h < 12) continue;
+        if (s.y < 400 || s.y > 715) continue;
+        if (s.x < cx + half && s.x + s.w > cx - half) best = Math.min(best, s.y);
+      }
+      return best;
+    })();
+    // 2) 登りレール：壁ぎわの細い柱を左右に立てる
+    //    ※ レールは「上に繋がっている部屋がある」ときだけ。行き止まり（地図の端）では
+    //      立てない：坑が通り抜けの近道になってしまううえ、登っても出られない。
+    //    ※ レールは床から 80px 空けて立てる（下を通り抜けられるように）。
+    //      床まで届かせると、上へ繋がっていない部屋で「通り抜けられない柱」になり、
+    //      横移動の進行を塞いでしまう。
+    room.solids = room.solids.filter((q) => !q.climbRail);
+    const railTop = 96;
+    const railBottom = floorY - 80;
+    const hgt = Math.max(120, railBottom - railTop);
+    room.solids.push({ x: cx - half - CLIMB_RAIL, y: railTop, w: CLIMB_RAIL, h: hgt, climbRail: 'left' });
+    room.solids.push({ x: cx + half, y: railTop, w: CLIMB_RAIL, h: hgt, climbRail: 'right' });
+    // 3) 足がかり：一方通行の棚（下からは通り抜けられる＝ジャンプで登れる）
+    //    左右交互に置くので、まっすぐ登れて、壁蹴りと併用もできる。
+    // 足がかりは「ほぼ同じ x」に積む（左右の振れは 22px）。
+    //   真上にジャンプして乗り継げる＋壁蹴りの踏み台にもなる形にする。
+    // 足がかりは坑の内側いっぱい。左右どちらかに寄せても柱の外＝必ず素通りできる。
+    const NUB_STEP = 56;
+    const innerW = (half - CLIMB_RAIL) * 2;
+    const NUB_W = Math.max(48, innerW - 8);   // 柱の内側に収める（はみ出すと乗れない）
+    let side = 0;
+    room.oneWays = room.oneWays || [];
+    const gpN = WORLD_GRAPH[room.mapX + ',' + room.mapY] || {};
+    const nubTopLimit = (gpN.up != null && !isBoss(gpN.up)) ? 20 : 76;
+    const holeY0 = room.floorHole ? room.floorHole.y : null;
+    const holeX0 = room.floorHole ? room.floorHole.x0 : null;
+    const holeX1 = room.floorHole ? room.floorHole.x1 : null;
+    // 穴が坑の真下に無い部屋では、穴の外へ足がかりを逃がす（落ちる動線を塞がない）
+    //   ※ 穴へ落ちるのは「横に歩いて穴へ入る」動線なので、足がかりは坑の中央に戻す。
+    const holeInShaft = true;
+    const nubCx = false
+      ? (holeX1 + 40 < cx ? Math.min(cx, holeX1 + 40 + NUB_W / 2) : Math.max(cx, holeX0 - 40 - NUB_W / 2))
+      : cx;
+    for (let y = floorY - 52; y > nubTopLimit; y -= NUB_STEP) {
+      const nx = nubCx - NUB_W / 2;
+      room.oneWays.push({ x: Math.round(nx), y: Math.round(y), w: NUB_W, climbNub: true });
+      side ^= 1;
+    }
+    // 4) 上の部屋があるときだけ天井を抜く（無ければ塞いだまま＝行き止まりの天井）
+    room.solids = room.solids.filter((q) => {
+      const isCeil = q.y <= 4 && q.h <= 60 && q.w > 200;
+      if (!isCeil) return true;
+      return false;                       // 天井板は縦坑の分だけ“丸ごと”外し、後で左右に張り直す
+    });
+    // 天井板を張り直す：上の部屋があるときだけ縦坑の上を空ける
+    const ceilH = 36;
+    const gp = WORLD_GRAPH[room.mapX + ',' + room.mapY] || {};
+    const hasUp = gp.up != null && !isBoss(gp.up);
+    if (hasUp) {
+      room.solids.push({ x: 0, y: 0, w: Math.max(0, cx - half), h: ceilH, climbCeil: true });
+      room.solids.push({ x: cx + half, y: 0, w: Math.max(0, room.w - (cx + half)), h: ceilH, climbCeil: true });
+      room.ceilingOpen = true;
+    } else {
+      room.solids.push({ x: 0, y: 0, w: room.w, h: ceilH, climbCeil: true });
+      room.ceilingOpen = false;
+      room.solids = room.solids.filter((q) => !q.climbNubPass);
+    }
+    room.vdoorSpan = { x0: cx - half, x1: cx + half };
+    room.climbShaft = { x0: cx - half - CLIMB_RAIL, x1: cx + half + CLIMB_RAIL, cx, top: 0,
+      inner0: cx - half, inner1: cx + half };
     room._owUp = true;
   };
   // 罠の真上を避ける：穴の判定は「穴に掛かる罠がないこと」が条件なので、
@@ -3826,8 +3915,9 @@ const WORLD_GRAPH = {};
     return Math.abs((t.y || 600) - y) > 110;
   });
   const carveDown = (room) => {
-    let cx = Math.round(room.w * _shaftFrac(room.mapX));
-    room.vdoorSpan = { x0: cx - VDOOR_HALF, x1: cx + VDOOR_HALF };
+    let cx = room.climbShaft ? room.climbShaft.cx : Math.round(room.w * _shaftFrac(room.mapX));
+    const keepSpan = !!room.climbShaft;          // 坑と穴の x を一致させる（上書きしない）
+    if (!keepSpan) room.vdoorSpan = { x0: cx - VDOOR_HALF, x1: cx + VDOOR_HALF };
     for (const half of [VDOOR_HALF, 52, 40]) {
       // 柱の位置が床からはみ出す部屋は、柱の中心を床の内側へ寄せる
       const cands = room.solids.filter((s) => {
@@ -3836,7 +3926,11 @@ const WORLD_GRAPH = {};
         return s.w > half * 2 + 12;
       }).sort((a, b) => a.y - b.y);
       // 部屋の入口（左端寄り）から歩いて行ける床を優先：中央に近い床を選ぶ
-      cands.sort((a, b) => Math.abs((a.x + a.w / 2) - room.w * 0.35) - Math.abs((b.x + b.w / 2) - room.w * 0.35));
+      if (keepSpan) {
+        cands.sort((a, b) => Math.abs((a.x + a.w / 2) - cx) - Math.abs((b.x + b.w / 2) - cx));
+      } else {
+        cands.sort((a, b) => Math.abs((a.x + a.w / 2) - room.w * 0.35) - Math.abs((b.x + b.w / 2) - room.w * 0.35));
+      }
       const s = cands[0];
       if (s) {
         const lo = s.x + half + 6, hi = s.x + s.w - half - 6;
@@ -3862,7 +3956,7 @@ const WORLD_GRAPH = {};
           if (q.x < cx - half - 30 || q.x + q.w > cx + half + 30) return true;
           return false;
         });
-        room.vdoorSpan = { x0: cx - half, x1: cx + half };
+        if (!keepSpan) room.vdoorSpan = { x0: cx - half, x1: cx + half };
         room.floorHole = { x0: cx - half, x1: cx + half, y: s.y };
         _carveBand(room, cx - half, cx + half, 120, 760);
         room.vdoorDown = (WORLD_GRAPH[room.mapX + ',' + room.mapY] || {}).down;
@@ -3883,34 +3977,36 @@ const WORLD_GRAPH = {};
     room.vdoorDown = null;
   });
 
+  // 縦の辺は「上下どちらから見ても1回だけ」掘る（番号の大小に依存させない）
   const pairs = [];
+  const seenEdge = new Set();
   ROOMS.forEach((r, i) => {
     const g = WORLD_GRAPH[r.mapX + ',' + r.mapY];
-    if (g.up != null && g.up > i) pairs.push([i, g.up]);
+    if (g.up == null) return;
+    const up = g.up;
+    const key = Math.min(i, up) + ':' + Math.max(i, up);
+    if (seenEdge.has(key)) return;
+    seenEdge.add(key);
+    // 下の部屋（mapY が大きい方）を a にする
+    const a = r.mapY >= ROOMS[up].mapY ? i : up;
+    const b = a === i ? up : i;
+    pairs.push([a, b]);
   });
-  // 梯子は「くり抜きが全部終わってから」積む（床の穴を掘る帯が梯子を消さないように）
-  const ladderPass = () => {
-    ROOMS.forEach((room) => {
-      if (!room._owUp) return;
-      const cx = Math.round(room.w * _shaftFrac(room.mapX));
-      const floorY = floorAt(room, cx, VDOOR_HALF);
-      let y = floorY - 70, placed = 0;
-      while (y > 150 && placed < 16) {
-        room.solids.push({ x: cx - Math.round(VDOOR_RUN / 2), y, w: VDOOR_RUN, h: 14, ladder: true });
-        y -= VDOOR_STEP; placed++;
-      }
-      room.vdoorSteps = (room.vdoorSteps || 0) + placed;
-    });
-  };
+  // 梯子（上方向のドアの名残）は積まない。登るのは壁蹴り。
+  const ladderPass = () => {};
 
+  // 先に全部の「床の穴」を掘り、そのあとで「縦坑（足がかり）」を積む。
+  //   carveDown は縦坑の帯をくり抜くので、順番を逆にすると足がかりが消える。
+  for (const [a, b] of pairs) {
+    if (!isBoss(a) && !isBoss(b)) carveDown(ROOMS[b]);
+  }
+  for (const [a, b] of pairs) {
+    if (!isBoss(a) && !isBoss(b)) carveUp(ROOMS[a]);
+  }
   for (const [a, b] of pairs) {
     // ボス部屋（闘技場）は地形を削らない：上下の繋がりは左右の扉で迂回させる
     if (!isBoss(a) && !isBoss(b)) {
-      // a = 下の部屋 / b = 上の部屋
-      //   下の部屋：天井まで登る縦穴（煙突＋梯子）
-      //   上の部屋：床の穴（落ちると下の部屋へ）
-      carveUp(ROOMS[a]);
-      carveDown(ROOMS[b]);
+      // 済（上で実施）
     } else {
       // 片方が闘技場：繋がりをグラフから外し、番号の前後を非常口に使う
       const ka = ROOMS[a].mapX + ',' + ROOMS[a].mapY;
@@ -3919,6 +4015,84 @@ const WORLD_GRAPH = {};
       else { WORLD_GRAPH[kb].down = null; if (WORLD_GRAPH[ka]) WORLD_GRAPH[ka].up = null; }
     }
   }
+  // 壊せる隠し壁（breakables）が縦坑にかかると頭を打つので、坑の外へずらす
+  ROOMS.forEach((room) => {
+    const sh = room.climbShaft;
+    if (!sh) return;
+    for (const b of room.breakables || []) {
+      const insideBand = b.x < sh.x1 + 12 && b.x + b.w > sh.x0 - 12;
+      if (!insideBand) continue;
+      const toRight = (b.x + b.w / 2) >= sh.cx;
+      b.x = toRight ? sh.x1 + 26 : sh.x0 - 26 - b.w;
+      b.x = Math.max(70, Math.min(room.w - 70 - b.w, Math.round(b.x)));
+    }
+  });
+
+  // 縦坑の内側に残った障害物を除去（登りの通り道を保証。レールと天井は残す）
+  ROOMS.forEach((room) => {
+    const sh = room.climbShaft;
+    if (!sh) return;
+    const i0 = sh.inner0 != null ? sh.inner0 : sh.x0;
+    const i1 = sh.inner1 != null ? sh.inner1 : sh.x1;
+    room.solids = room.solids.filter((q) => {
+      if (q.climbRail || q.climbCeil) return true;
+      const overlap = q.x < i1 - 1 && q.x + q.w > i0 + 1;
+      if (!overlap) return true;
+      // 細い障害物（隠し壁・柱の切れ端）は消す。床板・天井は残す。
+      const thin = q.w < 60 || q.h < 40;
+      return thin ? q.y < 60 : true;
+    });
+  });
+
+  // 上に部屋が無い＝行き止まりの部屋は、天井を塞ぎ直す（坑が抜け道にならないように）
+  ROOMS.forEach((room) => {
+    const sh = room.climbShaft;
+    if (!sh || room.isBossRoom) return;
+    const gp = WORLD_GRAPH[room.mapX + ',' + room.mapY];
+    if (gp && gp.up != null) return;
+    const i0 = sh.inner0 != null ? sh.inner0 : sh.x0;
+    const i1 = sh.inner1 != null ? sh.inner1 : sh.x1;
+    room.solids = room.solids.filter((q) => !q.climbRail && !q.climbCeil);
+    const segs = room.solids.filter((q) => q.y <= 40 && q.h >= 30).sort((a, b) => a.x - b.x);
+    const covered = segs.some((q) => q.x <= i0 + 2 && q.x + q.w >= i1 - 2);
+    // 天井板は「何も無いところ」にだけ継ぎ足す（既存の天井と重ねない＝多層判定を作らない）
+    const gaps = [];
+    let cur = 0;
+    for (const q of segs) {
+      if (q.x > cur + 1) gaps.push([cur, Math.min(q.x, room.w)]);
+      cur = Math.max(cur, q.x + q.w);
+    }
+    if (cur < room.w - 1) gaps.push([cur, room.w]);
+    for (const [gx0, gx1] of gaps) {
+      const ax = Math.max(gx0, i0), bx = Math.min(gx1, i1);
+      if (bx - ax > 2) room.solids.push({ x: ax, y: 0, w: bx - ax, h: 36, climbCeil: 'cap' });
+    }
+    room.ceilingOpen = false;
+    room.oneWays = (room.oneWays || []).filter((o) => !o.climbNub);
+  });
+
+  // 床の穴の真下（穴の幅の中）に残った細い足場を撤去する（落ちきれない原因を消す）
+  ROOMS.forEach((room) => {
+    const h = room.floorHole;
+    if (!h) return;
+    room.solids = room.solids.filter((q) => {
+      if (q.ladder || q.climbRail || q.climbCeil) return true;
+      const overlap = q.x < h.x1 - 2 && q.x + q.w > h.x0 + 2;
+      if (!overlap) return true;
+      // 穴より上でも、穴を跨ぐ「棚（climbNub 等）」は残す（登りの足場を消さない）
+      if (q.climbNub || q.oneWay || q.thin) return true;
+      return q.y <= h.y - 2;            // 穴より上（棚など）は残す
+    });
+    room.oneWays = (room.oneWays || []).filter((o) =>
+      !(o.x < h.x1 + 4 && o.x + o.w > h.x0 - 4 && o.y >= h.y - 60));
+  });
+
+  // 上の部屋が無い部屋は、天井際の足がかりを撤去（頭を打たせない）
+  ROOMS.forEach((room) => {
+    if (room.ceilingOpen !== false) return;
+    room.oneWays = (room.oneWays || []).filter((o) => !(o.climbNub && o.y < 90));
+  });
+
   // 穴の真上に掛かる罠（棘など）は撤去する：穴の判定と地形を食い違わせない
   ROOMS.forEach((room) => {
     const h = room.floorHole;
@@ -3934,6 +4108,111 @@ const WORLD_GRAPH = {};
   });
 
   ladderPass();
+})();
+
+// =========================================================================
+// CHAIN WALL-BREACH（壁抜け）— 鎖を壁に刺して引き寄せ、向こうの部屋へ抜ける
+//   ・部屋の左右の端は 64px の壁。地図上で隣の部屋があるのに「壁」で塞がれて
+//     いる境界（＝矢印の付いていない場所）は、壁＋壁で最大 128px の“間”になる。
+//   ・間が薄ければ鎖で抜けられる。厚ければ引き寄せ切れず、間へ落ちて死ぬ。
+//   ・壁の厚さは地形から実測する（データを書き換えず、描画・判定・RTA と一致）。
+//   ・鎖は 290px（難易度補正込み）なので、間は「肩幅＋鎖が届く範囲」で判定する。
+// =========================================================================
+const WALL_SEAL_RANGE = 290;                     // 鎖の素の間合い（entities.js の GRAPPLE_BASE_RANGE と同値・読込順の都合で直書き）
+const WALL_SEAL_MIN_GAP = 8;                     // これより薄い間は「密着」＝常に抜ける
+const WALL_GAP_LIMIT = 208;                      // 間がこれ以上なら鎖が届かない（＝死）
+
+// 部屋の左右端の壁（幅・上端・高さ）を実測する
+function measureSideWall(room, side) {
+  const edge = side === 'right' ? room.w : 0;
+  let best = null;
+  for (const s of room.solids) {
+    if (s.ladder || s.crumble) continue;
+    if (s.w > 140 || s.w < 8 || s.h < 100) continue;   // 天井・床板・柱は「壁」ではない
+    const touches = side === 'right'
+      ? Math.abs((s.x + s.w) - edge) <= 1
+      : Math.abs(s.x - edge) <= 1;
+    if (!touches) continue;
+    const thick = side === 'right'
+      ? Math.max(0, (s.x + s.w) - Math.min(s.x, edge))
+      : Math.max(0, Math.min(s.x + s.w, edge) - s.x);
+    if (!best || thick > best.thick || (thick === best.thick && s.h > best.h)) {
+      best = { thick: Math.round(thick), top: s.y, h: s.h };
+    }
+  }
+  return best || { thick: 64, top: 0, h: 450 };
+}
+
+const WALL_SEALS = {};
+(function buildWallSeals() {
+  // 接続グラフ（＝ゲームが実際に使う隣接）を基準に壁を判定する。
+  //   座標が重複した部屋があるため、mapX/mapY の総当たりではなく WORLD_GRAPH を見る。
+  const plugMouth = (room, side, thick) => {
+    const x = side === 'right' ? room.w - thick : 0;
+    const y0 = 36, y1 = 605;   // 天井から床まで塞ぐ（上に乗れる棚を作らない）
+    const blocked = room.solids.some((q) =>
+      !q.ladder && q.x <= x + 2 && q.x + q.w >= x + thick - 2 && q.y <= y0 + 4 && q.y + q.h >= y1 - 4);
+    if (blocked) return false;
+    room.solids.push({ x, y: y0, w: thick, h: y1 - y0, sealWall: true });
+    return true;
+  };
+
+  ROOMS.forEach((r, i) => {
+    if (r.isBossRoom) return;                     // 闘技場は扉が閉じるので対象外
+    const g = WORLD_GRAPH[r.mapX + ',' + r.mapY];
+    if (!g || g.id !== i) return;                 // 座標が重複している部屋は対象外
+    const lay = ROOM_LAYOUT[r.id];
+    const rec = {};
+    for (const side of ['left', 'right']) {
+      const nb = g[side];
+      const open = lay ? !!lay.open[side] : false;
+      if (open && nb != null) continue;           // 開いている扉＝鎖は要らない
+      if (nb != null && ROOMS[nb].isBossRoom) continue;
+      if (nb == null) {
+        if (open) continue;
+        // 地図の端：壁の向こうは虚空。鎖は刺さるが抜ければ落ちて死ぬ。
+        const a0 = measureSideWall(r, side);
+        const t0 = a0.thick >= 40 ? a0.thick : 64;
+        plugMouth(r, side, t0);
+        rec[side] = { gap: Infinity, room: i, side, other: null, breachable: false,
+          dropX: 72, thick: t0, top: a0.top, h: a0.h };
+        (WALL_SEALS[i] = WALL_SEALS[i] || {})[side] = rec[side];
+        continue;
+      }
+      const a = measureSideWall(r, side);
+      const otherSide = side === 'right' ? 'left' : 'right';
+      const b = measureSideWall(ROOMS[nb], otherSide);
+      const ta = a.thick >= 40 ? a.thick : 64;
+      const tb = b.thick >= 40 ? b.thick : 64;
+      const gap = ta + tb;
+      const seal = { gap, room: i, side, other: nb, breachable: gap <= WALL_GAP_LIMIT,
+        thick: ta, top: a.top, h: a.h, dropX: 72 };
+      // 「薄い側」を壁の実測で決める：狭い方から鎖を撃つと抜けやすい
+      seal.breachable = seal.breachable && {
+        ...seal,
+      }.gap <= WALL_GAP_LIMIT;
+      rec[side] = seal;
+      seal.narrow = seal.gap <= WALL_GAP_LIMIT;
+      (WALL_SEALS[i] = WALL_SEALS[i] || {})[side] = seal;
+      // 相手側の記録にも「自分から見た相手」を入れる（監査・テストで相互参照するため）
+      const nbg = WORLD_GRAPH[ROOMS[nb].mapX + ',' + ROOMS[nb].mapY];
+      if (nbg && nbg[otherSide] === i) {
+        (WALL_SEALS[nb] = WALL_SEALS[nb] || {})[otherSide] =
+          { ...seal, room: nb, side: otherSide, other: i, thick: tb };
+      }
+      plugMouth(r, side, ta);
+      plugMouth(ROOMS[nb], otherSide, tb);
+    }
+    // 逆向きの境界（相手の左右が自分を指している）で未処理のものを補完する
+    for (const side of ['left', 'right']) {
+      if (rec[side]) continue;
+      const otherSide = side === 'right' ? 'left' : 'right';
+      const nb = g[side];
+      const peer = nb != null ? (WALL_SEALS[nb] || {})[otherSide] : null;
+      if (peer && peer.other === i && !peer.__mirrorOnly) rec[side] = { ...peer, room: i, side, other: nb };
+    }
+    r.wallSeals = rec;
+  });
 })();
 
 
@@ -4037,6 +4316,9 @@ class Player {
     // Arcane Traversal Whip (Swing & Enemy Pull)
     this.grapple = null; // { kind:'anchor'|'enemy', target, ax, ay, len, angle, angVel, timer }
     this.grappleCooldown = 0;
+    // 【応用】壁抜け（鎖を壁に刺して引き寄せ、間の薄い壁だけを突き抜ける）
+    this.wallPull = null;      // { room, side, gap, sx, sy, reach, dir, timer, phase }
+    this.wallPullCd = 0;
     this.bestGrappleTarget = null;
 
     // Damage / Curse state
@@ -4224,6 +4506,7 @@ class Player {
   // pointing at something that no longer exists.
   clearChain() {
     this.grapple = null;
+    this.wallPull = null;
     this.chainLatch = null;
     this.chainTarget = null;
     this.chainParry = 0;
@@ -4737,14 +5020,149 @@ class Player {
     return best;
   }
 
+  // =====================================================================
+  // 【応用】扉の無い壁へ鎖を刺して引き寄せる（＝壁抜け）
+  //   ・地図上は隣の部屋があるのに壁で塞がれている境界が対象。
+  //   ・壁と壁の“間”が鎖の間合いに収まる薄さなら、胸幅ぶんだけ抜けられて
+  //     向こうの部屋へ入れる。厚いと引き寄せ切れず、間へ落ちて死ぬ。
+  //   ・「鎖を刺す → 壁に当たっている（しがみつき中）→ 鎖攻撃ボタン」の
+  //     2段目で発動するので、壁際でうっかり鎖を撃っても勝手には抜けない。
+  // =====================================================================
+  findWallPull() {
+    const g = this.game, room = g.room;
+    if (!room || !room.wallSeals || room.isBossRoom) return null;
+    const cx = this.x + this.w / 2;
+    let best = null;
+    for (const side of ['left', 'right']) {
+      const seal = room.wallSeals[side];
+      if (!seal) continue;
+      const wallX = side === 'right' ? room.w - seal.thick : seal.thick;
+      const dist = Math.abs(wallX - cx);
+      if (dist > 150) continue;                       // 壁から離れすぎ
+      const reach = WALL_SEAL_RANGE + (g.diff.grappleAssist || 0) + (g.grappleBonus || 0);
+      // 鎖が「刺さる位置」＝壁に触れている高さに、壁の面の少し奥を取る
+      const sx = side === 'right' ? Math.min(cx + 20, wallX + seal.thick * 0.5)
+        : Math.max(cx - 20, wallX - seal.thick * 0.5);
+      const sy = this.centerY;
+      // 壁が立っている高さにいるときだけ刺さる（床際〜天井近くまで）
+      if (sy < 170 || sy > 650) continue;
+      const here = { room: room.id, side, gap: seal.gap, other: seal.other,
+        sx, sy, reach, dist, wallX, breachable: seal.gap <= reach };
+      if (!best || dist < best.dist) best = here;
+    }
+    return best;
+  }
+
+  tryWallPull() {
+    if (this.wallPullCd > 0 || this.wallPull) return false;
+    const spot = this.findWallPull();
+    if (!spot) return false;
+    this.wallPullCd = 0.6;
+    this.slideTimer = 0;
+    this.atkState = null;
+    this.game.sound.sfx('grapple');
+    this.game.spawnParticles(spot.sx, spot.sy, '#cfe4ff', 8, 120);
+    // 鎖は必ず刺さる。刺さったうえで「引き寄せ切れるか」が間の厚さで決まる。
+    this.wallPull = {
+      room: spot.room, side: spot.side, gap: spot.gap, other: spot.other,
+      sx: spot.sx, sy: spot.sy, dir: spot.side === 'right' ? 1 : -1,
+      wallX: spot.wallX, breachable: spot.breachable,
+      timer: 0, phase: 'hold',
+    };
+    if (!spot.breachable) {
+      this.game.spawnText(this.x, this.y - 70,
+        spot.other == null ? '壁の外は虚空 — 抜ければ落ちる' : `間 ${Math.round(spot.gap)} — 鎖が届かない`,
+        '#8fa4b4', 12);
+    }
+    return true;
+  }
+
+  updateWallPull(dt) {
+    const wp = this.wallPull;
+    if (!wp) return false;
+    const g = this.game;
+    if (this.wallPullCd > 0) this.wallPullCd -= dt;
+    wp.timer += dt;
+    const wantY = wp.sy - this.h * 0.55;
+    this.onGround = false;
+
+    if (wp.phase === 'burst') {
+      // 引き寄せ切れた：壁を“突き抜ける”（当たり判定を無視して一気に前へ）
+      this.x += wp.dir * 760 * dt;
+      this.y += clamp((wantY - this.y) * 10, -600, 600) * dt;
+      this.vx = wp.dir * 760;
+      this.vy = 0;
+      return true;
+    }
+    if (wp.phase === 'doom') {
+      // 鎖が外れた：胸幅が通らないので“間”へ体ごと滑り落ちる
+      const room2 = this.game.room;
+      const edge = wp.dir > 0 ? room2.w + 10 : -10 - this.w;
+      const dxTo = edge - this.x;
+      this.x += clamp(dxTo * 6, -200, 200) * dt;
+      this.vy += 1480 * dt;
+      this.y += this.vy * dt;
+      this.vx = wp.dir * 200;
+      return true;
+    }
+
+    // hold: 壁へ引き寄せられ、刺さった高さで止まる（部屋の内側から出ない）
+    const room = g.room;
+    this.vx = wp.dir * 340;
+    const face = wp.dir > 0 ? wp.wallX - this.w - 2 : wp.wallX + 2;
+    const towardFace = (face - this.x) * wp.dir;
+    if (towardFace > 0) this.x += Math.min(towardFace, 340 * dt) * wp.dir;
+    this.x = clamp(this.x, 8, room.w - this.w - 8);
+    this.vy = clamp((wantY - this.y) * 9, -520, 520);
+    this.y += this.vy * dt;
+    if (this.y < 220 && this.vy < 0) { this.vy = 0; this.y = 220; }
+    if (this.y > 560) { this.y = 560; this.vy = 0; }   // 床へめり込ませない
+    return true;
+  }
+
+  // 壁にしがみついている間に鎖攻撃ボタン → 引き寄せて抜ける
+  //   ・間が薄い → burst（突き抜けて隣室へ）
+  //   ・間が厚い／地図の端 → doom（鎖が外れて“間”へ落ちる＝死）
+  breachWall() {
+    const wp = this.wallPull;
+    if (!wp || wp.phase !== 'hold') return false;
+    wp.timer = 0;
+    if (wp.breachable) {
+      wp.phase = 'burst';
+      this.vx = wp.dir * 900;
+      this.vy = 0;
+      this.hurtIframes = Math.max(this.hurtIframes, 0.5);
+      this.game.sound.sfx('parry');
+      this.game.spawnText(this.x, this.y - 84, '壁抜け', '#ffe6ad', 15);
+      this.game.spawnParticles(this.x, this.centerY, '#ffe6ad', 22, 260);
+    } else {
+      wp.phase = 'doom';
+      this.vx = wp.dir * 300;
+      this.vy = 160;
+      this.hurtIframes = 0;
+      this.game.sound.sfx('grapple');
+      this.game.spawnText(this.x, this.y - 84, '鎖が外れた', '#ff6a82', 14);
+    }
+    return true;
+  }
+
   startGrapple() {
     if (this.dead || this.grappleCooldown > 0) return;
     if (this.grapple) {
       this.releaseGrapple(true);
       return;
     }
+    // 壁にピタッと寄っているときは「壁」を最優先（錨や敵が近くても壁を撃てる）
+    const nearWall = this.findWallPull();
+    if (nearWall && nearWall.dist <= 120) {
+      if (this.tryWallPull()) return;
+    }
     const target = this.findBestGrappleTarget();
-    if (!target) return;
+    if (!target) {
+      // 何も刺さらない → 壁抜けを試す（壁の向こうに部屋がある時だけ成立する）
+      if (this.tryWallPull()) return;
+      return;
+    }
 
     this.slideTimer = 0;
     this.atkState = null;
@@ -4946,10 +5364,15 @@ class Player {
       this.game.sound.sfx('dash');
     }
 
+    if (this.wallPullCd > 0) this.wallPullCd -= dt;
+
     // Discrete action inputs
     if (input.parryPressed) this.startParry();
     if (input.dashPressed) this.startSlideOrBackdash(input.moveDir);
-    if (input.grapplePressed) this.startGrapple();
+    if (input.grapplePressed) {
+      if (this.wallPull && this.wallPull.phase === 'hold') this.breachWall();
+      else if (!this.wallPull) this.startGrapple();
+    }
     if (input.attackPressed) this.startAttack();
     if (input.arcanaPressed) this.castArcana();
     if (input.flaskPressed) this.useFlask();
@@ -5059,6 +5482,13 @@ class Player {
         }
       }
       this.bestGrappleTarget = this.findBestGrappleTarget();
+      this.updateCloth(dt);
+      return;
+    }
+
+    // --- WALL PULL (壁抜け): 鎖で壁に張り付いている間は移動を乗っ取る ---
+    if (this.wallPull) {
+      this.updateWallPull(dt);
       this.updateCloth(dt);
       return;
     }
@@ -6934,9 +7364,10 @@ class Renderer {
     if (room) {
       this.drawParallax(game, theme, t);
       this.drawDepthLayers(game, theme, t);
-      // シームレス連結：隣の部屋の地形を先に描いて、扉を跨いでも途切れないようにする
-      this.drawSeamlessSides(game, t);
       this.drawRoomDecor(game, theme, t);
+      // シームレス連結：隣の部屋の地形は「自室の背景装飾の後」に描く。
+      // 先に描くと自室の暗幕（drawRoomDecor の帯）が隣室の上に乗って真っ黒になる。
+      this.drawSeamlessSides(game, t);
       this.drawRoomGeometry(game, theme, t);
       this.drawTraps(game, theme, t);
       this.drawEntities(game, theme, t);
@@ -7275,14 +7706,47 @@ class Renderer {
     this.__ghost = true;          // 隣室描画中フラグ（decor を省く）
     const theme = THEMES[room.theme] || THEMES.paris;
     g2.translate(0, 0);
+    // 隣室は「地形と背景」だけを描く。物理オブジェクト（壊せる壁・罠・拾い物・
+    // 上下の梯子）は自室のものを参照しないよう空で渡す。
+    //   ※ 以前ここで例外を握りつぶしていたため、隣室の床が描かれず
+    //     「見えない床」に見える不具合が出ていた。例外は握りつぶさず記録する。
+    const ghostGame = {
+      room, camX: 0, camOffX: 0, player: null,
+      activeSolids: () => (room.solids || []).filter((q) => !q.removed),
+      breakables: [], candles: [], collectibles: [], pickups: [], relicPickups: [],
+      verticalNeighbor: () => null,
+      isGhost: true,
+    };
     try {
-      this._drawDecorBody(room, 0, theme, 0, room.w);
-      this.drawRoomGeometry({ room, camX: 0, camOffX: 0, player: null, traps: [], enemies: [], effects: [], k: null }, theme, 0);
-    } catch (e) { /* 見た目だけなので失敗は無視 */ }
+      // 幅 1280 を超える部屋は、画面幅ごとに区切って描く。
+      //   （drawRoomGeometry は「カメラから見て画面外」の部屋材を間引くため、
+      //     一度に描くと 1280px より先の床が丸ごと欠けてしまう）
+      for (let cx = 0; cx < room.w; cx += VIEW_W) {
+        // 各チャンクは画面座標（0..1280）で描かれるので、キャンバス上は
+        // cx ぶん右へずらして置く（ずらさないと全部 0 番地に上書きされる）
+        g2.save();
+        g2.translate(cx, 0);
+        this._drawDecorBody(room, cx, theme, 0, VIEW_W);
+        ghostGame.camX = cx;
+        this.drawRoomGeometry(ghostGame, theme, 0);
+        g2.restore();
+      }
+      this._seamErr = null;
+    } catch (e) {
+      this._seamErr = String(e && e.message ? e.message : e);
+      console.error('[seamless] 隣室の描画に失敗:', e);
+    }
     this.__ghost = false;
     this.ctx = prev;
-    if (!this._seamSeen) this._seamSeen = {};
+    if (!this._seamSeen) { this._seamSeen = {}; this._seamOrder = []; }
     this._seamSeen[key] = cv;
+    // 1室あたり数MBになるので、直近3室だけ持つ
+    this._seamOrder = this._seamOrder.filter((k) => k !== key);
+    this._seamOrder.push(key);
+    while (this._seamOrder.length > 3) {
+      const drop = this._seamOrder.shift();
+      delete this._seamSeen[drop];
+    }
     return cv;
   }
 
@@ -7300,7 +7764,17 @@ class Renderer {
       if (dx > this.cssW || dx + cv.width < 0) continue;
       const sx0 = Math.max(0, Math.round(-dx));
       const sw = Math.min(cv.width - sx0, Math.round(this.cssW - Math.max(0, dx)) + 2);
-      if (sw > 0) ctx.drawImage(cv, sx0, 0, sw, cv.height, Math.round(dx) + sx0, 0, sw, cv.height);
+      if (sw > 0) {
+        ctx.drawImage(cv, sx0, 0, sw, cv.height, Math.round(dx) + sx0, 0, sw, cv.height);
+        // 部屋の境目は「壁の影」1本だけ。面の明るさは変えない（＝床が途切れて見えない）
+        const seamX = Math.round(dx) + (part.dir === 'right' ? 0 : cv.width);
+        const gGap = ctx.createLinearGradient(seamX - 26, 0, seamX + 26, 0);
+        gGap.addColorStop(0, 'rgba(0,0,0,0)');
+        gGap.addColorStop(0.5, 'rgba(0,0,0,0.42)');
+        gGap.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gGap;
+        ctx.fillRect(seamX - 26, 0, 52, VIEW_H);
+      }
     }
   }
 
@@ -7416,30 +7890,31 @@ class Renderer {
     const key = 'slab|' + themeName + '|' + thin + '|' + st.toFixed(2);
     this._slabSeen = this._slabSeen || {};
     if (this._slabSeen[key]) return this._slabSeen[key];
-    const side = Math.max(3, (thin ? this.depth.side * 0.55 : this.depth.side) * st);
+    const side = Math.max(2, (thin ? this.depth.side * 0.5 : this.depth.side) * st);
     const top = Math.max(2, (thin ? this.depth.top * 0.5 : this.depth.top) * st);
 
-    // 上面（明るい面）: 1px 幅の縦グラデを横に伸ばして使う
+    // 上面の帯（1px 幅の縦グラデを横に伸ばす）
     const topCv = document.createElement('canvas');
     topCv.width = 1;
     topCv.height = Math.max(1, Math.ceil(top));
     const g1 = topCv.getContext('2d');
     const gTop = g1.createLinearGradient(0, 0, 0, topCv.height);
-    gTop.addColorStop(0, shade(theme.stoneTop, 0.34));
-    gTop.addColorStop(1, shade(theme.stoneTop, 0.06));
+    gTop.addColorStop(0, shade(theme.stoneTop, 0.20));
+    gTop.addColorStop(1, shade(theme.stoneTop, -0.02));
     g1.fillStyle = gTop;
     g1.fillRect(0, 0, 1, topCv.height);
 
-    // 側面（暗い面）: 4px 高さの横グラデを縦に伸ばして使う
+    // 側面は「浅い面取り」だけ。下へ向かって透明にする（黒い柱に見せない）
     const sideCv = document.createElement('canvas');
     sideCv.width = Math.max(2, Math.ceil(side));
-    sideCv.height = 1;
+    sideCv.height = 32;
     const g2 = sideCv.getContext('2d');
-    const gSide = g2.createLinearGradient(0, 0, sideCv.width, 0);
-    gSide.addColorStop(0, shade(theme.stone, -0.34));
-    gSide.addColorStop(1, shade(theme.stoneDeep, -0.58));
-    g2.fillStyle = gSide;
-    g2.fillRect(0, 0, sideCv.width, 1);
+    const gv = g2.createLinearGradient(0, 0, 0, sideCv.height);
+    gv.addColorStop(0, shade(theme.stone, -0.16));
+    gv.addColorStop(0.45, shade(theme.stoneDeep, -0.30));
+    gv.addColorStop(1, 'rgba(0,0,0,0)');
+    g2.fillStyle = gv;
+    g2.fillRect(0, 0, sideCv.width, sideCv.height);
 
     const rec = { topCv, sideCv, top, side, skew: side * 0.55 };
     this._slabSeen[key] = rec;
@@ -7450,11 +7925,13 @@ class Renderer {
     if (!this.depthOn()) return;
     const ctx = this.ctx;
     const c = this.slabCache(theme, this._curThemeName || 'paris', thin);
-    // 上面：板の上端に明るい帯（少し右へずらして遠近を出す）
+    // 上面：板の上端に明るい帯（右へ少しだけ傾けて遠近を出す）
     ctx.drawImage(c.topCv, Math.round(x), Math.round(y - c.top), Math.ceil(w + c.skew), c.topCv.height);
-    // 側面：板の右端を押し出した暗い面
-    const sh = Math.max(2, Math.round(h - c.top + 2));
-    ctx.drawImage(c.sideCv, Math.round(x + w), Math.round(y - c.top + 2), c.sideCv.width, sh);
+    // 側面：右端を浅く面取り。ブロックの高さいっぱいには伸ばさない
+    const tall = Math.min(Math.max(0, h - c.top + 2), 32) * (thin ? 1 : Math.max(0.45, Math.min(1, h / 90)));
+    if (tall > 1) {
+      ctx.drawImage(c.sideCv, 0, 0, c.sideCv.width, Math.ceil(tall), Math.round(x + w), Math.round(y - c.top + 2), c.sideCv.width, Math.ceil(tall));
+    }
     void h;
   }
 
@@ -7819,42 +8296,29 @@ class Renderer {
     if (rightOpen) doorGlow(maxX - 34 - camX, rTop, 30, 146, true);
     if (leftOpen) doorGlow(4 - camX, lTop, 30, 146, false);
 
-    // --- 上下の出入口（梯子）: 前の部屋が上なら天井の穴、次が下なら床の穴 ---
-    const vs = vdoorSpan(room);
-    const upIdx = game.verticalNeighbor(-1), downIdx = game.verticalNeighbor(1);
-    const upRoom = upIdx === null ? null : ROOMS[upIdx];
-    const downRoom = downIdx === null ? null : ROOMS[downIdx];
-    const vDoor = (cx, top, dir) => {
-      if (!isFinite(cx) || !isFinite(top)) return;   // 念のため（配置データ異常で描画を止めない）
+    // --- 上下の出入口は「物理的な開口部」に変更（上方向のドア廃止）---
+    //   ・上へは縦坑（climbShaft）を壁蹴り／足がかりで登る。矢印は描かない。
+    //   ・下へは床の穴（floorHole）に落ちる。これも矢印を描かない。
+    //   目印として、縦坑の天井には淡い光の柱だけ置く（行き先を示す）。
+    const sh = room.climbShaft;
+    if (sh && Number.isFinite(sh.cx)) {
+      const g4 = ctx.createLinearGradient(0, 0, 0, 260);
+      g4.addColorStop(0, 'rgba(255,236,170,0.30)');
+      g4.addColorStop(1, 'rgba(255,180,90,0)');
       ctx.save();
-      const w = 96, hh = 62;
-      const g3 = ctx.createLinearGradient(cx, top, cx, top + hh);
-      g3.addColorStop(0, 'rgba(255,190,120,0.55)');
-      g3.addColorStop(1, 'rgba(255,120,60,0.12)');
-      ctx.fillStyle = g3;
-      ctx.fillRect(cx - w / 2, top, w, hh);
-      ctx.strokeStyle = 'rgba(255,206,140,0.55)';
-      ctx.lineWidth = 1.6;
-      ctx.strokeRect(cx - w / 2, top, w, hh);
-      ctx.fillStyle = 'rgba(16,5,10,0.78)';
+      ctx.fillStyle = g4;
+      ctx.fillRect(sh.x0 - camX, 0, (sh.x1 - sh.x0), 260);
+      ctx.globalAlpha = 0.55 + Math.sin(t * 2.2) * 0.12;
+      ctx.strokeStyle = 'rgba(255,226,150,0.5)';
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([10, 8]);
       ctx.beginPath();
-      ctx.arc(cx, top + hh / 2, 19, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,206,140,0.45)';
-      ctx.lineWidth = 1.2;
+      ctx.moveTo(sh.cx - camX, 250);
+      ctx.lineTo(sh.cx - camX, 14);
       ctx.stroke();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = '700 20px "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif';
-      ctx.shadowColor = 'rgba(255,170,80,0.95)';
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = 'rgba(255,248,222,1)';
-      ctx.fillText(dir === 'up' ? '▲' : '▼', cx, top + hh / 2 + 1);
+      ctx.setLineDash([]);
       ctx.restore();
-    };
-    const midX = (Number(vs.x0) + Number(vs.x1)) / 2 - camX;
-    if (upRoom) vDoor(midX, 40, 'up');
-    if (downRoom) vDoor(midX, room.h - 104, 'down');
+    }
 
     // Boss seal: crimson barrier over both doorways while the boss lives
     if (game.boss && !game.boss.dead) {
@@ -8634,6 +9098,51 @@ class Renderer {
         ctx.font = '700 11px "Hiragino Kaku Gothic ProN", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('鎖 — L で鎖パリィ', lx, ly + 30);
+      }
+      ctx.restore();
+    }
+
+    // ---- 壁抜け: 鎖が壁に刺さっている間の見た目 ----
+    //   ・薄い間 → 金色の鎖＋「鎖 — もう一度で壁抜け」
+    //   ・厚い間／虚空 → 鎖がたわんで切れそうな演出＋警告
+    if (p.wallPull) {
+      const wp = p.wallPull;
+      const sx = wp.sx - camX, sy = wp.sy;
+      ctx.save();
+      const dashing = wp.phase === 'burst' || wp.phase === 'doom';
+      const sag = dashing ? 0 : 16;
+      const okc = wp.breachable;
+      ctx.strokeStyle = okc ? 'rgba(255,236,170,0.85)' : 'rgba(150,170,190,0.7)';
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash(okc ? [] : [7, 6]);
+      ctx.beginPath();
+      ctx.moveTo(x, p.centerY);
+      ctx.quadraticCurveTo((x + sx) / 2, (p.centerY + sy) / 2 + sag, sx, sy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // 刺さった点
+      const rg = ctx.createRadialGradient(sx, sy, 1, sx, sy, 24);
+      rg.addColorStop(0, okc ? 'rgba(255,248,214,0.95)' : 'rgba(170,200,225,0.75)');
+      rg.addColorStop(1, okc ? 'rgba(255,190,80,0)' : 'rgba(90,120,150,0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(sx, sy, 24, 0, Math.PI * 2); ctx.fill();
+      // ひび（抜けられそうな壁は亀裂が走る）
+      if (okc) {
+        ctx.strokeStyle = 'rgba(255,226,150,0.75)';
+        ctx.lineWidth = 1.4;
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2 + t * 0.6;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + Math.cos(a) * (12 + (i % 3) * 6), sy + Math.sin(a) * (10 + (i % 2) * 7));
+          ctx.stroke();
+        }
+      }
+      if (wp.phase === 'hold') {
+        ctx.fillStyle = okc ? 'rgba(255,236,170,0.95)' : 'rgba(190,210,230,0.92)';
+        ctx.font = '700 11px "Hiragino Kaku Gothic ProN", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(okc ? '鎖 — もう一度で壁抜け' : '鎖 — 間が厚い', sx, sy - 26);
       }
       ctx.restore();
     }
@@ -11061,6 +11570,7 @@ class Game {
   loadRoom(idx, fromDir, opts) {
     const keep = opts && opts.keepPlayer;
     this.camOffX = 0;
+    this.seamParts = this.seamlessPartners(idx).map((q) => ({ room: ROOMS[idx], alt: ROOMS[q.id], dir: q.dir, dx: q.dx }));
     // RTA: 踏破面を記録（Any% の判定と HUD 用）
     if (this.rta && this.rta.active) {
       if (!this.rta.visited) this.rta.visited = [0];
@@ -11173,28 +11683,48 @@ class Game {
     if (p && !keep) {
       if (p.clearChain) p.clearChain(); else p.grapple = null;
       p.atkState = null;
+      const placeDoor = (side, facing) => {
+        const d = doorSpawn(this, room, side);
+        p.x = d.x; p.y = d.y; p.facing = facing;
+        // 扉の位置が細い柱と重なる等で危険なら、立てる場所へ寄せる
+        if (!isSafeSpawn(this, room, p.x, p.y)) {
+          const f = settleSpawn(this, room, p.x, p.y) || findSafeFooting(this, room, p.x);
+          if (f) { p.x = f.x; p.y = f.y; }
+        }
+      };
       if (fromDir === 'right') {
         // came in through the right-hand door: stand just inside it, facing left
-        const d = doorSpawn(this, room, 'right');
-        p.x = d.x; p.y = d.y; p.facing = -1;
+        placeDoor('right', -1);
       } else if (fromDir === 'left') {
-        const d = doorSpawn(this, room, 'left');
-        p.x = d.x; p.y = d.y; p.facing = 1;
+        placeDoor('left', 1);
       } else if (fromDir === 'up') {
-        // 下の部屋から縦穴を登ってきた：床の穴の脇に立つ（穴に落ちない位置）
+        // 縦坑を登って来た：坑の底（＝この部屋の床）に立たせる。
+        //   坑の真下は「床の穴」になっているので、必ず穴を避けた足場へ寄せる。
         const vs = vdoorSpan(room);
-        p.x = clamp(vs.x0 - 60, 90, room.w - 90);
-        p.y = 520; p.facing = 1;
+        const cx = room.climbShaft ? room.climbShaft.cx : (vs.x0 + vs.x1) / 2;
+        const wantX = clamp(cx + 110, 90, room.w - 90);
+        const f = settleSpawn(this, room, wantX, 600) || settleSpawn(this, room, cx - 110, 600)
+          || findSafeFooting(this, room, wantX) || { x: wantX, y: 560 };
+        p.x = f.x; p.y = f.y; p.facing = 1;
       } else if (fromDir === 'down') {
         // 上の部屋から縦穴を落ちてきた：天井の穴の真下から降りていく
         const vs = vdoorSpan(room);
         p.x = (vs.x0 + vs.x1) / 2;
         p.y = 190; p.facing = 1;
+        // 穴の真下に床が無い（＝奈落）なら、立てる場所へ逃がす
+        if (!isSafeSpawn(this, room, p.x, Math.max(p.y, 520))) {
+          const f = settleSpawn(this, room, p.x, Math.max(p.y, 520)) || findSafeFooting(this, room, p.x);
+          if (f) { p.x = f.x; p.y = f.y; }
+        }
       } else if (fromDir === 'warp') {
         // warpTo() places the player beside the mirror
       } else {
         p.x = Math.max(70, (room.spawn && room.spawn.x) || 100);
         p.y = (room.spawn && room.spawn.y) || 550;
+        if (!isSafeSpawn(this, room, p.x, p.y)) {
+          const f = settleSpawn(this, room, p.x, p.y) || findSafeFooting(this, room, p.x);
+          if (f) { p.x = f.x; p.y = f.y; }
+        }
       }
       p.vx = 0;
       p.vy = 0;
@@ -11603,11 +12133,16 @@ class Game {
     if (this.doorCancelTimer > 0 && this.roomLock > 0 && !this.doorCancelUsed &&
         (this.input.parryPressed || this.input.attackPressed)) {
       this.roomLock = 0;
+    this.breachGrace = 0;
       this.doorCancelUsed = true;
       this.sound.sfx('parry');
       this.spawnText(p.x, p.y - 60, 'ロック解除', '#8fe8ff', 13);
       this.rings.push({ x: p.x, y: p.centerY, r: 6, maxR: 46, color: '#8fe8ff', alpha: 0.9 });
     }
+
+    // ---- 壁抜け（鎖で壁を突き抜けて隣の部屋へ）----
+    if (this.breachGrace > 0) this.breachGrace -= dt;
+    if (this.updateWallPullTransition()) return;
 
     // ---- Room transitions (doorways sit inside the boundary walls) ----
     if (this.roomLock > 0) this.roomLock -= dt;
@@ -11615,7 +12150,7 @@ class Game {
     // The doorway is a mouth: you are only carried to the next stage once you
     // have walked INTO it, and loadRoom() always drops you on the far side of
     // the opposite door, so you can never be flung straight back.
-    if (this.roomLock <= 0 && !bossSealed) {
+    if (this.roomLock <= 0 && !bossSealed && !(this.breachGrace > 0)) {
       const hasNext = this.roomIdx < ROOMS.length - 1;
       const hasPrev = this.roomIdx > 0;
       // シームレス区間では境界手前で乗り換える（＝シームレスに繋ぐ）。
@@ -11634,7 +12169,12 @@ class Game {
       // ※左右の境界に近いときだけ。部屋の中央（縦穴・梯子）では縦の出口を通常どおり使う。
       const nearEdge = p.x < 380 || p.x > this.room.w - 380;
       const seamMove = this.seamlessOn() && this.roomIdx < SEAMLESS_STAGES && nearEdge && this.seamParts && this.seamParts.length > 0;
-      const atTop = p.y < 210 && (midCol || p.vy <= 0) && !seamMove;
+      // 上方向の「ドア」は廃止。天井の開口部（climbShaft）を登りきったら上の部屋へ。
+      // 上方向の「ドア」は廃止。縦坑を天井近くまで登りきったら上の部屋へ。
+      //   横の扉判定と競合しないよう、坑の中（横位置）にいるときだけ。
+      const shNow = this.room.climbShaft;
+      const inShaft = !!shNow && p.x + p.w / 2 > shNow.inner0 - 10 && p.x + p.w / 2 < shNow.inner1 + 10;
+      const atTop = !!shNow && inShaft && p.y < 120 && p.vy <= 0 && !seamMove;
       // 床の穴は「落ち始めたら」で判定（穴の底で救済措置＝奈落ダメージが走る前に拾う）
       const holeY = (this.room.floorHole && this.room.floorHole.y) || this.room.h;
       // 「落ちきった」の閾値は部屋の高さ基準（床の穴が高い位置にある部屋でも
@@ -11659,11 +12199,23 @@ class Game {
         if (this.room.isBossRoom && (dir === 'left' || dir === 'right')) return this.seqNeighbor(this.roomIdx, dir);
         return null;
       };
-      // 天井 → 上
+      // 縦坑を登りきった → 上の部屋
       if (atTop) {
         const t = targetFor('up');
-        // 上に部屋が無ければ、地図上で左右に繋がっている部屋へ非常口で抜ける
         if (t !== null && t !== this.roomIdx) { this.loadRoom(t, 'up'); return; }
+        // 地図の端（上に部屋が無い）は、天井を登っても何も無い＝そのまま落下するだけ。
+        if (p.y < 0) { p.y = 0; p.vy = Math.max(0, p.vy); }
+      }
+      // 床の穴の真上で「下入力で足場をすり抜けた」→ その場で下の部屋へ
+      //   （穴の縁に足がかかっていると「落ちきった」判定まで届かないことがあるため）
+      {
+        const fh = this.room.floorHole;
+        const overHole = !!fh && p.x + p.w / 2 > fh.x0 - 4 && p.x + p.w / 2 < fh.x1 + 4 &&
+          p.y > fh.y - 30 && p.dropThroughTimer > 0;
+        if (overHole) {
+          const t = targetFor('down');
+          if (t !== null && t !== this.roomIdx) { this.loadRoom(t, 'down'); return; }
+        }
       }
       // 床の穴 → 下
       if (atBottom) {
@@ -11678,18 +12230,30 @@ class Game {
       // 左右の扉
       if (atRight || atLeft) {
         const dir = atRight ? 'right' : 'left';
+        // 壁（間）で塞がれている境界は歩いても通れない。鎖で抜く（壁抜け）だけ。
+        const seal = this.room.wallSeals && this.room.wallSeals[dir];
+        if (seal) return;
         const t = targetFor(dir);
         if (t !== null && t !== this.roomIdx) {
-          // シームレス区間（第1章20面）は座標を引き継いで乗り換える
-          const seamless = this.seamlessOn() && this.roomIdx < SEAMLESS_STAGES && t < SEAMLESS_STAGES;
+          // シームレスに乗り換えてよいのは「本当に繋がっている隣室」だけ。
+          //   ・ボス部屋（闘技場）は対象外（扉が閉じるので位置を持ち越さない）
+          //   ・地図の辺で繋がっている左右の隣だけ（上下は対象外）
+          const seamless = this.seamlessOn() &&
+            this.seamlessPartners(this.roomIdx).some((q) => q.dir === dir && q.id === t);
           if (seamless) {
-            // 座標をそのまま持ち越す（境界を跨いでも位置が飛ばない）
-            const oldW = this.room.w;
-            const carry = atRight ? p.x - oldW : p.x + ROOMS[t].w;
+            // シームレス：扉のバナーもロックも無しで乗り換える。
+            //   着地点は通常の扉と同じ doorSpawn（＝必ず立てる場所）。
+            //   ここを「座標そのまま持ち越し」にすると、隣室の外へ出て
+            //   床が無い場所に落ちる／奈落ダメージになる組み合わせが出たため。
             this.loadRoom(t, atRight ? 'left' : 'right', { keepPlayer: true });
-            p.x = Math.max(-140, Math.min(this.room.w + 140, carry));
-            p.y = Math.max(60, Math.min(this.room.h - 20, p.y));
-            p.vx = Math.max(p.vx, atRight ? 120 : -120);
+            // 着地点は「必ず立てる場所」（doorSpawn → 補正 → 床板）
+            const d = doorSpawn(this, this.room, atRight ? 'left' : 'right');
+            const f = settleSpawn(this, this.room, d.x, d.y) || findSafeFooting(this, this.room, d.x) || d;
+            p.x = f.x;
+            p.y = f.y;
+            p.vx = atRight ? 160 : -160;
+            p.vy = 0;
+            p.onGround = false;
             this.seamlessHop = 0.25;
           } else {
             this.loadRoom(t, atRight ? 'left' : 'right');
@@ -11732,6 +12296,10 @@ class Game {
     if (!G) return out;
     for (const dir of ['left', 'right']) {
       const j = G[dir];
+      // 壁（間）で塞がれている境界はシームレスに繋がない。
+      //   繋ぐのは「矢印のある＝扉が開いている」境界だけ（壁は鎖で抜く）。
+      const sealed = room.wallSeals && room.wallSeals[dir];
+      if (sealed) continue;
       if (j != null && j < SEAMLESS_STAGES && Math.abs(ROOMS[j].mapY - room.mapY) === 0) {
         out.push({ id: j, dir, dx: dir === 'right' ? room.w : -ROOMS[j].w, rel: true });
       }
@@ -12666,6 +13234,69 @@ class Game {
     }
   }
 
+  // =====================================================================
+  // 壁抜け（鎖で壁を突き抜ける）
+  //   ・薄い間：壁を突き抜けて隣の部屋の内側へ（座標そのまま＝扉をくぐるより速い）
+  //   ・厚い間：鎖が届かないので“間”へ落ちる（＝死）。ただし EASY/NORMAL は
+  //     壁に当たった時点で「鎖が届かない」と分かるので、押し込んでも死なない。
+  // =====================================================================
+  updateWallPullTransition() {
+    const p = this.player;
+    if (!p || !p.wallPull) return false;
+    const wp = p.wallPull;
+    const room = this.room;
+    const side = wp.side;
+    const wallEdge = side === 'right' ? room.w : 0;
+    const crossed = side === 'right' ? (p.x >= room.w - 6) : (p.x <= 6);
+    const expired = wp.phase === 'burst' && wp.timer > 0.42;
+    // 厚い間／地図の端（虚空）：鎖が外れて“間”へ落ちる＝死
+    if (wp.phase === 'doom') {
+      // 厚い間・虚空は「抜けきれず落ちる」ので、通常の出口判定に拾われる前に即死させる
+      if (!crossed && wp.timer < 0.12) return false;
+      p.wallPull = null;
+      p.clearChain();
+      p.x = clamp(p.x, -120, room.w + 120);
+      this.spawnText(p.x, p.y - 50, '間へ落ちた', '#ff6a82', 14);
+      p.die('間へ落ちた');
+      return true;
+    }
+    if (!crossed && !expired) return false;
+
+    const seal = (room.wallSeals && room.wallSeals[side]) || null;
+    p.wallPull = null;
+    p.clearChain();
+    // 隣の部屋へは「座標を持ち越して」入る（扉と同じ安全補正だけかける）
+    const target = seal ? seal.other : null;
+    if (target == null) return false;
+    this.loadRoom(target, side === 'right' ? 'left' : 'right', { keepPlayer: true, breach: true });
+    const ns = this.room;
+    // 壁の内側はしばらく「出口判定の圏内」なので、扉の判定より奥へ着地させる
+    // （浅い位置に出すと、入った瞬間に元の部屋へ戻されて往復してしまう）
+    const inside = Math.max(96, (seal && seal.thick ? seal.thick : 64) + 32);
+    p.x = clamp(side === 'right' ? inside : ns.w - inside, 60, ns.w - 60);
+    this.breachGrace = 0.4;
+    if (!isSafeSpawn(this, ns, p.x, 560)) {
+      const f = settleSpawn(this, ns, p.x, 560) || findSafeFooting(this, ns, p.x);
+      if (f) { p.x = f.x; p.y = f.y; }
+    } else {
+      p.y = 0;
+    }
+    // 抜けた先の床へ落とす（天井から落ちた扱いで、穴があれば避ける）
+    const foot = findSafeFooting(this, ns, p.x);
+    if (foot) p.y = foot.y - 60;
+    p.vx = (side === 'right' ? 1 : -1) * 160;
+    p.vy = 0;
+    p.facing = side === 'right' ? 1 : -1;
+    p.onGround = false;
+    p.hurtIframes = Math.max(p.hurtIframes, 0.35);
+    this.camX = clamp(p.x - VIEW_W * 0.35, 0, Math.max(0, ns.w - VIEW_W));
+    this.spawnText(p.x, p.y - 60, '壁抜け — 隣室へ', '#ffe6ad', 14);
+    this.rings.push({ x: p.x, y: p.y, r: 8, maxR: 90, color: '#ffe6ad', alpha: 0.95 });
+    this.sound.sfx('mirror');
+    if (this.rta && this.rta.active) this.rta.breaches = (this.rta.breaches || 0) + 1;
+    return true;
+  }
+
   // 床抜けダッシュの救済：奈落に落ちたら部屋の入口へ戻す（死亡にしない）
   floorDashRescue() {
     const p = this.player;
@@ -13410,6 +14041,92 @@ function vdoorSpan(room) {
   return { x0: w * 0.5 - 70, x1: w * 0.5 + 70 };
 }
 
+// 出現位置の安全確認：その場所に「立てる床」があるか。
+//   （穴の真上・奈落の上・狭すぎる隙間をスポーン地点にしない）
+function isSafeSpawn(game, room, x, footY) {
+  const p = game.player;
+  if (!p) return true;
+  // 動的な床（崩れる床・動く足場など）も含めた当たり判定で調べる
+  const solids = (game.activeSolids && room === game.room) ? game.activeSolids() : (room.solids || []);
+  const W = (p.w || 26) / 2;
+  const x0 = x - W + 3, x1 = x + W - 3;
+  const top = footY - (p.h || 50) + 4;
+  // 体が地形に埋まっていないか
+  for (const s of solids) {
+    if (s.removed) continue;
+    if (x1 <= s.x || x0 >= s.x + s.w) continue;
+    if (footY - 2 <= s.y || top >= s.y + s.h) continue;
+    if (s.ladder) continue;
+    return false;
+  }
+  // 足元に床（梯子の段は除く）があるか
+  let floor = null;
+  for (const s of solids) {
+    if (s.removed || s.ladder) continue;
+    if (x1 <= s.x || x0 >= s.x + s.w) continue;
+    if (s.y >= footY - 4 && s.y <= footY + 90) { if (floor === null || s.y < floor) floor = s.y; }
+  }
+  if (floor === null) {
+    for (const ow of room.oneWays || []) {
+      if (x1 <= ow.x || x0 >= ow.x + ow.w) continue;
+      if (ow.y >= footY - 4 && ow.y <= footY + 90) { if (floor === null || ow.y < floor) floor = ow.y; }
+    }
+  }
+  if (floor === null) return false;
+  // 床の穴の真上も不可
+  const fh = room.floorHole;
+  if (fh) {
+    const hx0 = fh.x0 !== undefined ? fh.x0 : fh.x;
+    const hx1 = fh.x1 !== undefined ? fh.x1 : fh.x + fh.w;
+    if (x1 > hx0 - 6 && x0 < hx1 + 6 && Math.abs(floor - (fh.y || 600)) < 60) return false;
+  }
+  return true;
+}
+
+// 部屋の中で「立てる床」を探して、その上に置く。見つからなければ null。
+function findSafeFooting(game, room, preferX) {
+  const p = game.player;
+  if (!p) return null;
+  const solids = (game.activeSolids && room === game.room) ? game.activeSolids() : (room.solids || []);
+  const floors = [];
+  for (const s of solids) {
+    if (s.removed || s.ladder) continue;
+    if (s.y < 160 || s.y > room.h - 10) continue;
+    if (s.w < 60) continue;
+    floors.push({ x: s.x + s.w / 2, y: s.y, w: s.w });
+  }
+  for (const ow of room.oneWays || []) {
+    if (ow.y < 160 || ow.y > room.h - 10 || ow.w < 60) continue;
+    floors.push({ x: ow.x + ow.w / 2, y: ow.y, w: ow.w });
+  }
+  floors.sort((a, b) => Math.abs(a.x - preferX) - Math.abs(b.x - preferX));
+  for (const f of floors) {
+    const x = clamp(f.x, 60, room.w - 60);
+    if (isSafeSpawn(game, room, x, f.y)) return { x, y: f.y };
+  }
+  return null;
+}
+
+// 出現位置の最終調整：埋まっているなら上へずらして「立てる場所」を探す。
+//   見つからなければ床板の上 → 無ければ null（呼び側で doorSpawn にフォールバック）。
+function settleSpawn(game, room, x, footY) {
+  const p = game.player;
+  if (!p) return null;
+  if (isSafeSpawn(game, room, x, footY)) return { x, y: footY };
+  // 細い柱の上端などへ乗せる（最大 96px まで上へ）
+  for (let up = 8; up <= 96; up += 8) {
+    if (isSafeSpawn(game, room, x, footY - up)) return { x, y: footY - up };
+  }
+  // 左右へ少しずらす
+  for (let dx = 16; dx <= 96; dx += 16) {
+    for (const nx of [x - dx, x + dx]) {
+      if (nx < 40 || nx > room.w - 40) continue;
+      if (isSafeSpawn(game, room, nx, footY)) return { x: nx, y: footY };
+    }
+  }
+  return findSafeFooting(game, room, x);
+}
+
 function doorSpawn(game, room, side) {
   const wantX = side === 'right' ? room.w - 96 : 96;
   let best = null;
@@ -13516,5 +14233,5 @@ window.addEventListener('load', () => {
 });
 
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a6100d0d180d9ce5',t:'MTc5NTc3MTE2Mw=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a6100d0d180d9ce5',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a6163b76692bb736',t:'MTc5NTgzNTk3OQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a6163b76692bb736',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
